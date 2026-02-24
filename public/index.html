@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+    #qr img { margin-top: 20px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div id="desktop">
+    <h1>Scan to Connect</h1>
+    <div id="qr"></div>
+  </div>
+
+  <div id="mobile" class="hidden">
+    <h1 style="color: rgb(184, 30, 30);">Hello from my phone!</h1>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    const socket = io();
+
+    function isMobile() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    const init = async () => {
+      if (!isMobile()) {
+        try {
+          console.log('Fetching /config...');
+          const response = await fetch('/config');
+          if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+          }
+          const data = await response.json();
+          const url = data.url;
+          console.log('Got URL:', url);
+          console.log('QR library available:', typeof qrcode);
+
+          const typeNumber = 4;
+          const errorCorrectionLevel = 'L';
+          const qr = qrcode(typeNumber, errorCorrectionLevel);
+          qr.addData(url);
+          qr.make();
+          const qrHtml = qr.createImgTag(4);
+          console.log('QR HTML:', qrHtml);
+          document.getElementById('qr').innerHTML = qrHtml;
+          console.log('QR code rendered successfully');
+        } catch (error) {
+          console.error('Error in init:', error);
+          document.getElementById('qr').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+
+      } else {
+        document.getElementById('desktop').classList.add('hidden');
+        document.getElementById('mobile').classList.remove('hidden');
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
