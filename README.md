@@ -67,3 +67,67 @@ server.listen(port, '0.0.0.0', () => {
 * **Visual Styling:** I customized the CSS colors, specifically setting the mobile header to `rgb(184, 30, 30)` to make the "Hello" message stand out visually.
 * **Manual QR Parameters:** I manually set `typeNumber = 4` and `errorCorrectionLevel = 'L'` inside the `init()` function to follow the specific instructions in the course README for the QR generator library.
 * **Console Debugging:** I wrote custom `console.log` strings (e.g., `'QR library available:'`, `'Got URL:'`) to monitor the handshake process in the browser console during development.
+
+
+### I still needed to implement actual WebRTC logic after following the initial Websockets tutorial for the signalling layer. 
+
+### Signaling and WebRTC Implementation
+
+**The Server-Side Signaling:** (index.js)
+I needed to update the server to act as a relay for the initial WebRTC handshake (signaling).
+
+#### What AI suggested:
+
+```javascript
+// --- index.js (Server Logic) ---
+
+// Add these listeners inside your io.on('connection') block to relay WebRTC data
+socket.on('offer', (data) => socket.broadcast.emit('offer', data));
+socket.on('answer', (data) => socket.broadcast.emit('answer', data));
+socket.on('candidate', (data) => socket.broadcast.emit('candidate', data));
+What you changed: You took this logic and placed it directly inside the io.on('connection', (socket) => { ... }) function in your existing index.js, ensuring it used the correct socket instance.
+```
+
+**Client-Side WebRTC Setup:** (index.html)
+I needed to set up the RTCPeerConnection and define how the mobile and desktop devices behave differently.
+
+#### What AI suggested:
+A complete function structure for setupDesktop and setupMobile.
+
+#### What I changed:
+
+* **Integrating renderQRCode:** Instead of just using the URL, I integrated the existing renderQRCode() function inside setupDesktop to keep the Week 1 functionality working.
+
+**Data Handling:** I created a new function setupDataChannel(channel) to consolidate the event listeners (onopen, onmessage) for both devices, making the code cleaner.
+
+**Fixed the isMobile Error** (in index.html)
+When testing the new code, I encountered an error because a helper function was missing in the new code.
+
+#### What AI suggested: 
+The updated code structure.
+
+```javascript
+
+    function isMobile() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+  ```
+
+#### What I changed:
+
+ I identified that isMobile() was missing from my updated snippet, went back to the original index.html, and added it back in to fix the **ReferenceError.**
+
+
+**Defining the Communication** (index.html)
+
+#### What AI suggested: A
+Adding dataChannel.send('next').
+
+#### What I changed:
+I created the structural logic in setupDataChannel to check for specific messages:
+
+```javascript
+if (event.data === 'next') console.log("Moving to next slide...");
+// this establishes the foundation for the slide control logic.//
+  ```

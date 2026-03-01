@@ -26,8 +26,14 @@ app.get('/config', (req, res) => {
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
+
+  // Relay WebRTC signaling data
+  socket.on('offer', (data) => socket.broadcast.emit('offer', data));
+  socket.on('answer', (data) => socket.broadcast.emit('answer', data));
+  socket.on('candidate', (data) => socket.broadcast.emit('candidate', data));
 });
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`Server running at http://${localIp}:${port}`);
 });
+
