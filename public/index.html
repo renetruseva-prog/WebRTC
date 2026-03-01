@@ -5,14 +5,129 @@
   <title>WebRTC Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #desktop {
       text-align: center;
       padding-top: 50px;
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
 
     #qr img {
       margin-top: 20px;
+    }
+
+    #mobile {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    #mobile h1 {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 18px;
+      color: #ffd700;
+    }
+
+    .presenter-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .notes-area {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      overflow-y: auto;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .notes-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    #speaker-notes {
+      font-size: 16px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 100px;
+    }
+
+    .timer-container {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .timer-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .timer-display {
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .timer-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #ffd700;
+      color: #333;
+      font-weight: bold;
+      cursor: pointer;
+      flex: 1;
+      transition: background 0.2s;
+    }
+
+    .timer-btn:hover {
+      background: #ffed4e;
+    }
+
+    .timer-btn:active {
+      transform: scale(0.98);
     }
 
     .hidden {
@@ -24,21 +139,205 @@
 <body>
 
   <div id="desktop">
-    <h1>Scan to Connect</h1>
-    <div id="qr"></div>
+    <!-- Upload Controls -->
+    <div class="upload-overlay">
+      <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
+      
+      <div style="margin-bottom: 10px;">
+        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin-bottom: 8px;" />
+        <button class="upload-btn" id="upload-file-btn">Upload File</button>
+      </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
+        <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
+        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6" cols="40"></textarea>
+        <button class="upload-btn" id="load-slides-btn">Load Slides</button>
+      </div>
+
+      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-top: 10px; width: 100%;">Show QR</button>
+    </div>
+
+    <!-- Reveal.js Presentation Container -->
+    <div class="reveal-container">
+      <div class="reveal">
+        <div class="slides" id="slides-container">
+          <section>
+            <h2>WebRTC Presenter</h2>
+            <p>Upload a markdown file or paste slides above to begin</p>
+            <p style="font-size: 18px; margin-top: 40px; opacity: 0.7;">Use <code>---</code> to separate slides</p>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-overlay" class="qr-overlay hidden">
+      <div class="qr-modal">
+        <h3>Scan to Connect Phone</h3>
+        <div id="qr"></div>
+        <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
+        <button class="close-qr" id="close-qr-btn">Close</button>
+      </div>
+    </div>
   </div>
 
   <div id="mobile" class="hidden">
-    <h1 style="color: rgb(184, 30, 30);">Hello from my phone!</h1>
+    <h1>🎤 Presenter View</h1>
+    
+    <div class="presenter-container">
+      <!-- Speaker Notes Section -->
+      <div class="notes-area">
+        <div class="notes-label">📝 Speaker Notes</div>
+        <div id="speaker-notes">Waiting for notes...</div>
+      </div>
+
+      <!-- Timer Section -->
+      <div class="timer-container">
+        <div class="timer-label">⏱️ Presentation Timer</div>
+        <div class="timer-display" id="timer-display">00:00</div>
+        <div class="timer-controls">
+          <button class="timer-btn" id="timer-start">Start</button>
+          <button class="timer-btn" id="timer-pause">Pause</button>
+          <button class="timer-btn" id="timer-reset">Reset</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- Reveal.js CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+  
+  <!-- Additional Styles for Slide Upload -->
+  <style>
+    .reveal-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .reveal {
+      width: 100%;
+      height: 100%;
+    }
+
+    .reveal .slides {
+      text-align: left;
+    }
+
+    .reveal section {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .upload-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px;
+      border-radius: 8px;
+      color: white;
+    }
+
+    .upload-input {
+      margin: 10px 0;
+      padding: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .upload-btn {
+      padding: 8px 15px;
+      background: #ff5555;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .upload-btn:hover {
+      background: #ff7777;
+    }
+
+    .qr-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      z-index: 1000;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .qr-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .qr-overlay.hidden {
+      display: none;
+    }
+
+    #qr {
+      margin: 20px 0;
+    }
+
+    .close-qr {
+      background: #333;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .close-qr:hover {
+      background: #555;
+    }
+  </style>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 
   <script>
     const socket = io();
     let peerConnection;
     let dataChannel;
+    let Reveal_Instance;
+
+    // Timer State
+    let timerState = {
+      isRunning: false,
+      elapsedSeconds: 0,
+      intervalId: null
+    };
 
     // WebRTC Configuration
     const config = {
@@ -50,6 +349,85 @@
       return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    async function extractTextFromPDF(arrayBuffer) {
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const slides = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          
+          // Render page to canvas
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          await page.render({
+            canvasContext: context,
+            viewport
+          }).promise;
+
+          // Convert canvas to data URL (image)
+          const imageUrl = canvas.toDataURL('image/png');
+
+          // Try to extract text for notes
+          let pageText = '';
+          try {
+            const textContent = await page.getTextContent();
+            pageText = textContent.items.map(item => item.str).join(' ');
+          } catch (e) {
+            pageText = `Page ${i}`;
+          }
+
+          slides.push({
+            imageUrl,
+            text: pageText
+          });
+        }
+
+        return slides;
+      } catch (error) {
+        console.error('Error extracting PDF:', error);
+        throw new Error('Failed to parse PDF');
+      }
+    }
+
+    function updateTimerDisplay() {
+      document.getElementById('timer-display').textContent = formatTime(timerState.elapsedSeconds);
+    }
+
+    function startTimer() {
+      if (timerState.isRunning) return;
+      timerState.isRunning = true;
+      timerState.intervalId = setInterval(() => {
+        timerState.elapsedSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      timerState.isRunning = false;
+      if (timerState.intervalId) {
+        clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+      }
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      timerState.elapsedSeconds = 0;
+      updateTimerDisplay();
+    }
+
     function renderQRCode(url) {
       const typeNumber = 4;
       const errorCorrectionLevel = 'L';
@@ -59,12 +437,139 @@
       document.getElementById('qr').innerHTML = qr.createImgTag(4);
     }
 
+    function parseMarkdownSlides(markdown) {
+      const slides = markdown.split('---').map(s => s.trim()).filter(s => s.length > 0);
+      return slides.map(slide => {
+        const lines = slide.split('\n');
+        let content = '';
+        let notes = '';
+        
+        // Split content and notes by "Notes:" marker
+        const notesIndex = slide.indexOf('Notes:');
+        if (notesIndex !== -1) {
+          content = slide.substring(0, notesIndex).trim();
+          notes = slide.substring(notesIndex + 6).trim();
+        } else {
+          content = slide;
+        }
+
+        return { content, notes };
+      });
+    }
+
+    function loadSlides(markdown) {
+      const slides = parseMarkdownSlides(markdown);
+      const slidesContainer = document.getElementById('slides-container');
+      slidesContainer.innerHTML = '';
+
+      slides.forEach((slideData, index) => {
+        const section = document.createElement('section');
+        section.setAttribute('data-notes', slideData.notes);
+        
+        let htmlContent = slideData.content;
+        // Try to use marked if available, otherwise use plain text
+        if (typeof marked !== 'undefined') {
+          try {
+            htmlContent = marked.parse(slideData.content);
+          } catch (e) {
+            console.warn('Marked parsing failed, using plain text:', e);
+            htmlContent = `<pre>${slideData.content}</pre>`;
+          }
+        } else {
+          // Fallback: convert basic markdown to HTML manually
+          htmlContent = slideData.content
+            .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+            .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+            .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+            .replace(/\n/g, '<br>');
+        }
+
+        section.innerHTML = `
+          <div style="background: rgba(255,255,255,0.1); padding: 40px; border-radius: 8px;">
+            ${htmlContent}
+          </div>
+        `;
+        slidesContainer.appendChild(section);
+      });
+
+      // Reinitialize Reveal.js after adding slides
+      if (Reveal_Instance) {
+        Reveal_Instance.initialize();
+        Reveal_Instance.sync();
+      }
+
+      // Send initial slide notes to phone
+      sendSlideNotestoPhone(0);
+    }
+
+    function loadPDFSlides(pdfSlides) {
+      const slidesContainer = document.getElementById('slides-container');
+      slidesContainer.innerHTML = '';
+
+      pdfSlides.forEach((slideData, index) => {
+        const section = document.createElement('section');
+        section.setAttribute('data-notes', slideData.text || `Page ${index + 1}`);
+        section.innerHTML = `
+          <img src="${slideData.imageUrl}" style="max-width: 90vw; max-height: 90vh; width: auto; height: auto;" />
+        `;
+        slidesContainer.appendChild(section);
+      });
+
+      // Reinitialize Reveal.js after adding slides
+      if (Reveal_Instance) {
+        Reveal_Instance.initialize();
+        Reveal_Instance.sync();
+      }
+
+      // Send initial slide notes to phone
+      sendSlideNotestoPhone(0);
+    }
+
+    function sendSlideNotestoPhone(slideIndex) {
+      const slides = document.querySelectorAll('.reveal .slides section');
+      if (slides[slideIndex]) {
+        const notes = slides[slideIndex].getAttribute('data-notes') || 'No notes for this slide';
+        if (dataChannel && dataChannel.readyState === 'open') {
+          dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
+        }
+      }
+    }
+
     function setupDataChannel(channel) {
-      channel.onopen = () => console.log("WebRTC Data Channel is OPEN");
+      channel.onopen = () => {
+        console.log("WebRTC Data Channel is OPEN");
+        // Send initial notes to phone
+        if (!isMobile()) {
+          sendSlideNotestoPhone(0);
+        }
+      };
       channel.onmessage = (event) => {
-        console.log("Received message:", event.data);
-        // Logic to change slides on desktop goes here!
-        if (event.data === 'next') console.log("Moving to next slide...");
+        const message = event.data;
+        console.log("Received message:", message);
+        
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(message);
+        } catch (e) {
+          console.log("Message is not JSON:", message);
+          return;
+        }
+
+        if (parsedMessage.type === 'notes') {
+          if (!isMobile()) {
+            console.log("[Desktop] Ignoring notes message");
+          } else {
+            document.getElementById('speaker-notes').textContent = parsedMessage.content;
+          }
+        } else if (parsedMessage.type === 'next') {
+          if (!isMobile()) {
+            console.log("[Desktop] Moving to next slide...");
+          }
+        } else if (parsedMessage.type === 'prev') {
+          if (!isMobile()) {
+            console.log("[Desktop] Moving to previous slide...");
+          }
+        }
       };
     }
 
@@ -78,12 +583,89 @@
     };
 
     async function setupDesktop() {
-      // 1. Get URL and Render QR
+      // Get URL and initial QR (don't show yet)
       const response = await fetch('/config');
       const data = await response.json();
-      renderQRCode(data.url);
 
-      // 2. Prepare WebRTC
+      // Setup QR button listener
+      document.getElementById('show-qr-btn').addEventListener('click', () => {
+        renderQRCode(data.url);
+        document.getElementById('qr-overlay').classList.remove('hidden');
+      });
+
+      document.getElementById('close-qr-btn').addEventListener('click', () => {
+        document.getElementById('qr-overlay').classList.add('hidden');
+      });
+
+      // Setup slide loading
+      document.getElementById('load-slides-btn').addEventListener('click', () => {
+        const markdown = document.getElementById('markdown-input').value;
+        if (markdown.trim()) {
+          loadSlides(markdown);
+        }
+      });
+
+      // Setup file upload
+      document.getElementById('upload-file-btn').addEventListener('click', () => {
+        const fileInput = document.getElementById('file-upload');
+        if (fileInput.files.length === 0) {
+          alert('Please select a file first');
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+          try {
+            if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+              // Handle PDF - render pages as images
+              const pdfSlides = await extractTextFromPDF(e.target.result);
+              loadPDFSlides(pdfSlides);
+              console.log('PDF loaded with', pdfSlides.length, 'pages');
+            } else {
+              // Handle text files
+              const content = e.target.result;
+              document.getElementById('markdown-input').value = content;
+              loadSlides(content);
+              console.log('Slides loaded from file:', file.name);
+            }
+          } catch (error) {
+            alert('Error processing file: ' + error.message);
+          }
+        };
+
+        reader.onerror = () => {
+          alert('Error reading file');
+        };
+
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file);
+        }
+      });
+
+      // Initialize Reveal.js
+      Reveal_Instance = new Reveal({
+        hash: true,
+        width: '100%',
+        height: '100%',
+        margin: 0.1,
+        minScale: 0.2,
+        maxScale: 2.0,
+        plugins: [ RevealMarkdown, RevealNotes ]
+      });
+
+      Reveal_Instance.initialize().then(() => {
+        // Listen for slide changes
+        Reveal_Instance.on('slidechanged', (event) => {
+          const slideIndex = Reveal_Instance.getState().indexh;
+          sendSlideNotestoPhone(slideIndex);
+        });
+      });
+
+      // Prepare WebRTC
       peerConnection = new RTCPeerConnection(config);
       dataChannel = peerConnection.createDataChannel("controls");
       setupDataChannel(dataChannel);
@@ -98,12 +680,22 @@
 
       socket.on('answer', async (answer) => {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        document.getElementById('connection-status').textContent = '✅ Phone Connected!';
+      });
+
+      socket.on('disconnect', () => {
+        document.getElementById('connection-status').textContent = '⚠️ Connection Lost';
       });
     }
 
     async function setupMobile() {
       document.getElementById('desktop').classList.add('hidden');
       document.getElementById('mobile').classList.remove('hidden');
+
+      // Setup timer controls
+      document.getElementById('timer-start').addEventListener('click', startTimer);
+      document.getElementById('timer-pause').addEventListener('click', pauseTimer);
+      document.getElementById('timer-reset').addEventListener('click', resetTimer);
 
       peerConnection = new RTCPeerConnection(config);
 
@@ -131,6 +723,14 @@
     });
 
     init();
+  </script>
+
+  <!-- Add markdown-it library for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Add PDF.js for PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
 </body>
 
