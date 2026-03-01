@@ -393,6 +393,32 @@
     let peerConnection;
     let dataChannel;
     let Reveal_Instance;
+    let socketConnected = false;
+
+    // Wait for socket to connect before proceeding
+    socket.on('connect', () => {
+      socketConnected = true;
+      console.log('✅ Socket.IO connected! ID:', socket.id);
+      console.log('=== WebRTC Presenter App Starting ===');
+      init();
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('❌ Socket.IO connection error:', error);
+      alert('❌ Failed to connect to server. Make sure the server is running on port 3000.');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('⚠️ Socket.IO disconnected');
+    });
+
+    // Fallback: if socket doesn't connect in 5 seconds, show error
+    setTimeout(() => {
+      if (!socketConnected) {
+        console.error('❌ Socket.IO failed to connect after 5 seconds');
+        alert('❌ Cannot connect to server. Check:\n1. Server is running (npm run dev)\n2. You are using the correct URL\n3. Both devices are on the same network');
+      }
+    }, 5000);
 
     // Timer State
     let timerState = {
@@ -411,7 +437,9 @@
 
     // --- HELPER FUNCTIONS ---
     function isMobile() {
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const userAgent = navigator.userAgent;
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+      return isMobileUA;
     }
 
     function formatTime(seconds) {
@@ -666,42 +694,62 @@
     }
 
     function sendAllNotesToPhone() {
-      const slides = document.querySelectorAll('.reveal .slides section');
+      if (!dataChannel || dataChannel.readyState !== 'open') {
+        alert('Phone not connected. Please scan QR code and connect first.');
+        return;
+      }
+
       let allNotesSent = 0;
       
-      slides.forEach((slide, index) => {
-        if (customNotes[index]) {
-          if (dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify({ type: 'slide-notes', slideIndex: index, content: customNotes[index] }));
-            allNotesSent++;
-          }
+      // Send all custom notes using Object.entries for more robust iteration
+      for (const [slideIndex, noteContent] of Object.entries(customNotes)) {
+        if (noteContent && noteContent.trim()) {
+          dataChannel.send(JSON.stringify({ 
+            type: 'slide-notes', 
+            slideIndex: parseInt(slideIndex), 
+            content: noteContent 
+          }));
+          console.log(`Sent note for slide ${slideIndex}: ${noteContent.substring(0, 50)}...`);
+          allNotesSent++;
         }
-      });
+      }
       
       if (allNotesSent > 0) {
-        alert(`Sent ${allNotesSent} notes to phone!`);
+        alert(`✅ Sent ${allNotesSent} note(s) to phone!`);
       } else {
-        alert('No custom notes to send. Please save notes first.');
+        alert('⚠️ No notes saved yet. Please:\n1. Select a slide\n2. Write notes\n3. Click "Save Note"\n4. Then send');
       }
     }
 
     function setupDataChannel(channel) {
+      const deviceType = isMobile() ? '[PHONE]' : '[DESKTOP]';
+      
       channel.onopen = () => {
-        console.log("WebRTC Data Channel is OPEN");
+        console.log(deviceType, "WebRTC Data Channel OPENED");
         // Send initial notes to phone
         if (!isMobile()) {
+          console.log('[DESKTOP] Sending initial notes to phone');
           sendSlideNotestoPhone(0);
         }
       };
+
+      channel.onerror = (error) => {
+        console.error(deviceType, 'Data Channel Error:', error);
+      };
+
+      channel.onclose = () => {
+        console.log(deviceType, 'Data Channel CLOSED');
+      };
+
       channel.onmessage = (event) => {
         const message = event.data;
-        console.log("Received message:", message);
+        console.log(deviceType, "Received message:", message);
         
         let parsedMessage;
         try {
           parsedMessage = JSON.parse(message);
         } catch (e) {
-          console.log("Message is not JSON:", message);
+          console.log(deviceType, "Message is not JSON:", message);
           return;
         }
 
@@ -709,6 +757,7 @@
           if (!isMobile()) {
             console.log("[Desktop] Ignoring notes message");
           } else {
+            console.log('[PHONE] Displaying speaker notes');
             document.getElementById('speaker-notes').textContent = parsedMessage.content;
           }
         } else if (parsedMessage.type === 'slide-notes') {
@@ -731,17 +780,61 @@
 
     // --- CORE LOGIC ---
     const init = async () => {
-      if (!isMobile()) {
+      const isMobileDevice = isMobile();
+      const forceMode = localStorage.getItem('forceMode'); // Check for override
+      
+      console.log('=== Device Detection ===');
+      console.log('User Agent:', navigator.userAgent);
+      console.log('Auto-detected as:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
+      console.log('Force mode override:', forceMode || 'none');
+      
+      // Use override if set, otherwise use auto-detection
+      const shouldBePhone = forceMode === 'phone' ? true : (forceMode === 'desktop' ? false : isMobileDevice);
+      
+      console.log('Final mode:', shouldBePhone ? 'MOBILE' : 'DESKTOP');
+      
+      if (!shouldBePhone) {
+        console.log('Setting up DESKTOP mode...');
         setupDesktop();
       } else {
+        console.log('Setting up MOBILE mode...');
         setupMobile();
       }
     };
+
+    // Add console commands for testing
+    window.forcePhone = () => {
+      localStorage.setItem('forceMode', 'phone');
+      console.log('Force mode set to PHONE. Reload page to apply.');
+      alert('Force mode set to PHONE. Reloading page...');
+      location.reload();
+    };
+
+    window.forceDesktop = () => {
+      localStorage.setItem('forceMode', 'desktop');
+      console.log('Force mode set to DESKTOP. Reload page to apply.');
+      alert('Force mode set to DESKTOP. Reloading page...');
+      location.reload();
+    };
+
+    window.clearForce = () => {
+      localStorage.removeItem('forceMode');
+      console.log('Force mode cleared. Reload page to apply.');
+      alert('Force mode cleared. Reloading page...');
+      location.reload();
+    };
+
+    console.log('💡 For testing, use these commands in console:');
+    console.log('  forcePhone()   - Force phone mode');
+    console.log('  forceDesktop() - Force desktop mode');
+    console.log('  clearForce()   - Clear override and auto-detect');
 
     async function setupDesktop() {
       // Get URL and initial QR (don't show yet)
       const response = await fetch('/config');
       const data = await response.json();
+      console.log('[DESKTOP] Server URL:', data.url);
+      console.log('[DESKTOP] Socket ID:', socket.id);
 
       // Setup toggle overlay button
       document.getElementById('toggle-overlay-btn').addEventListener('click', () => {
@@ -753,6 +846,7 @@
       document.getElementById('show-qr-btn').addEventListener('click', () => {
         renderQRCode(data.url);
         document.getElementById('qr-overlay').classList.remove('hidden');
+        console.log('[DESKTOP] QR code displayed');
       });
 
       document.getElementById('close-qr-btn').addEventListener('click', () => {
@@ -834,30 +928,59 @@
 
       // Prepare WebRTC
       peerConnection = new RTCPeerConnection(config);
+      console.log('[DESKTOP] RTCPeerConnection created');
+      
       dataChannel = peerConnection.createDataChannel("controls");
+      console.log('[DESKTOP] Data channel created');
       setupDataChannel(dataChannel);
 
       peerConnection.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('candidate', event.candidate);
+        if (event.candidate) {
+          console.log('[DESKTOP] Sending ICE candidate');
+          socket.emit('candidate', event.candidate);
+        }
       };
 
       const offer = await peerConnection.createOffer();
+      console.log('[DESKTOP] Offer created');
+      
       await peerConnection.setLocalDescription(offer);
+      console.log('[DESKTOP] Local description set');
+
+      // Wait for phone to request the offer (instead of sending immediately)
+      socket.on('phone-ready', () => {
+        console.log('[DESKTOP] Phone is ready, sending offer');
+        socket.emit('offer', offer);
+      });
+
+      // Also send offer immediately in case phone was already waiting
       socket.emit('offer', offer);
+      console.log('[DESKTOP] Offer sent to phone');
 
       socket.on('answer', async (answer) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        document.getElementById('connection-status').textContent = '✅ Phone Connected!';
+        try {
+          console.log('[DESKTOP] Received answer from phone');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log('[DESKTOP] Remote description set - CONNECTION SHOULD BE ESTABLISHED');
+          document.getElementById('connection-status').textContent = '✅ Phone Connected!';
+        } catch (error) {
+          console.error('[DESKTOP] Error handling answer:', error);
+        }
       });
 
       socket.on('disconnect', () => {
+        console.log('[DESKTOP] Socket disconnected');
         document.getElementById('connection-status').textContent = '⚠️ Connection Lost';
       });
     }
 
     async function setupMobile() {
+      console.log('[PHONE] Mobile setup starting...');
+      console.log('[PHONE] Socket ID:', socket.id);
+      
       document.getElementById('desktop').classList.add('hidden');
       document.getElementById('mobile').classList.remove('hidden');
+      console.log('[PHONE] UI switched to mobile mode');
 
       // Setup timer controls
       document.getElementById('timer-start').addEventListener('click', startTimer);
@@ -865,31 +988,64 @@
       document.getElementById('timer-reset').addEventListener('click', resetTimer);
 
       peerConnection = new RTCPeerConnection(config);
+      console.log('[PHONE] RTCPeerConnection created');
 
       peerConnection.ondatachannel = (event) => {
+        console.log('[PHONE] Data channel received:', event.channel.label);
         dataChannel = event.channel;
         setupDataChannel(dataChannel);
       };
 
       peerConnection.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('candidate', event.candidate);
+        if (event.candidate) {
+          console.log('[PHONE] Sending ICE candidate');
+          socket.emit('candidate', event.candidate);
+        }
+      };
+
+      peerConnection.onerror = (error) => {
+        console.error('[PHONE] RTCPeerConnection error:', error);
       };
 
       socket.on('offer', async (offer) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', answer);
+        try {
+          console.log('[PHONE] Received offer from desktop');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+          console.log('[PHONE] Remote description set');
+          
+          const answer = await peerConnection.createAnswer();
+          console.log('[PHONE] Answer created');
+          
+          await peerConnection.setLocalDescription(answer);
+          console.log('[PHONE] Local description set');
+          
+          socket.emit('answer', answer);
+          console.log('[PHONE] Answer sent to desktop');
+        } catch (error) {
+          console.error('[PHONE] Error handling offer:', error);
+        }
       });
+
+      console.log('[PHONE] Waiting for offer from desktop...');
+      
+      // Signal to desktop that phone is ready to receive offer
+      setTimeout(() => {
+        console.log('[PHONE] Emitting phone-ready signal to desktop');
+        socket.emit('phone-ready');
+      }, 500);
     }
 
     socket.on('candidate', async (candidate) => {
       try {
+        console.log('Received ICE candidate');
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) { console.error("Error adding ice candidate", e); }
+        console.log('ICE candidate added successfully');
+      } catch (e) { 
+        console.error("Error adding ice candidate", e); 
+      }
     });
 
-    init();
+    // init() will be called automatically when socket.io connects (see socket.on('connect') above)
   </script>
 
   <!-- Add markdown-it library for markdown parsing -->
