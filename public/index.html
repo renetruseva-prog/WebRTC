@@ -491,9 +491,6 @@
 
     // Data Channel State
     let dataChannelReady = false;
-    let statusPollingInterval = null;
-    let statusAnimFrameId = null;
-    let lastKnownState = null; // Track last state to detect changes
 
     // WebRTC Configuration
     const config = {
@@ -783,90 +780,31 @@
       if (nextBtn) nextBtn.disabled = currentPhoneSlide >= maxSlide;
     }
 
-    function updateConnectionStatusDisplay() {
+    // Single source-of-truth status setter — called directly from events, no polling
+    function setConnectionStatus(message, color, isConnected) {
       const statusDisplay = document.getElementById('connection-status-display');
       const statusText = document.getElementById('connection-status-text');
       const sendBtn = document.getElementById('send-notes-btn');
-      
-      if (!statusDisplay || !statusText) return;
-      
-      // Determine status based on data channel state
-      let isConnected = dataChannelReady && dataChannel && dataChannel.readyState === 'open';
-      let statusMessage = '';
-      let statusColor = '';
-      let currentState = dataChannel ? dataChannel.readyState : 'none';
-      
-      if (!dataChannel) {
-        statusMessage = '📡 Initializing...';
-        statusColor = 'rgba(255, 165, 0, 0.8)';
-      } else if (dataChannel.readyState === 'open' && dataChannelReady) {
-        statusMessage = '✅ Phone Connected';
-        statusColor = 'rgba(0, 180, 0, 0.8)';
-        isConnected = true;
-      } else if (dataChannel.readyState === 'connecting') {
-        statusMessage = '⏳ Connecting...';
-        statusColor = 'rgba(255, 165, 0, 0.8)';
-      } else if (dataChannel.readyState === 'closing') {
-        statusMessage = '⚠️ Disconnecting...';
-        statusColor = 'rgba(255, 165, 0, 0.8)';
-      } else if (dataChannel.readyState === 'closed') {
-        statusMessage = '❌ Phone Disconnected';
-        statusColor = 'rgba(255, 0, 0, 0.8)';
-      }
-      
-      // Only update DOM if state actually changed (React-like behavior)
-      if (lastKnownState !== currentState || statusText.textContent !== statusMessage) {
-        statusText.textContent = statusMessage;
-        statusDisplay.style.background = statusColor;
+      const qrModalStatus = document.getElementById('connection-status');
+
+      if (statusDisplay && statusText) {
+        statusText.textContent = message;
+        statusDisplay.style.background = color;
         statusDisplay.style.display = 'block';
-        lastKnownState = currentState;
-        console.log(`[DESKTOP] Status changed to: ${statusMessage} (channel: ${currentState}, ready: ${dataChannelReady})`);
       }
-      
-      // Update send button state
+
+      if (qrModalStatus) {
+        qrModalStatus.textContent = message;
+        qrModalStatus.style.color = isConnected ? 'green' : '#333';
+      }
+
       if (sendBtn) {
-        const wasDisabled = sendBtn.disabled;
         sendBtn.disabled = !isConnected;
         sendBtn.style.opacity = isConnected ? '1' : '0.5';
-        sendBtn.title = isConnected ? 'Send notes to phone' : `Can't send - phone not connected (${dataChannel ? dataChannel.readyState : 'no channel'})`;
-        
-        if (wasDisabled !== !isConnected) {
-          console.log(`[DESKTOP] Send button ${isConnected ? 'ENABLED' : 'DISABLED'}`);
-        }
+        sendBtn.title = isConnected ? 'Send notes to phone' : 'Phone not connected';
       }
-    }
 
-    function startStatusPolling() {
-      // Poll connection status with REAL-TIME reactivity (like React state)
-      if (statusPollingInterval) clearInterval(statusPollingInterval);
-      if (statusAnimFrameId) cancelAnimationFrame(statusAnimFrameId);
-      
-      updateConnectionStatusDisplay(); // First check immediately
-      
-      // Use requestAnimationFrame for sub-16ms updates (browser render cycle)
-      const continuousUpdate = () => {
-        updateConnectionStatusDisplay();
-        statusAnimFrameId = requestAnimationFrame(continuousUpdate);
-      };
-      statusAnimFrameId = requestAnimationFrame(continuousUpdate);
-      
-      // Also use setInterval as fallback for 100ms guaranteed checks
-      statusPollingInterval = setInterval(() => {
-        updateConnectionStatusDisplay();
-      }, 100);
-      
-      console.log('[DESKTOP] Status polling ACTIVE with requestAnimationFrame + 100ms interval (TRUE REAL-TIME)');
-    }
-
-    function stopStatusPolling() {
-      if (statusPollingInterval) {
-        clearInterval(statusPollingInterval);
-        statusPollingInterval = null;
-      }
-      if (statusAnimFrameId) {
-        cancelAnimationFrame(statusAnimFrameId);
-        statusAnimFrameId = null;
-      }
+      console.log('[DESKTOP] Status:', message);
     }
 
     function sendAllNotesToPhone() {
@@ -916,10 +854,7 @@
         console.log(deviceType, "WebRTC Data Channel OPENED - Ready State:", channel.readyState);
         dataChannelReady = true;
         if (!isMobile()) {
-          // Update UI immediately - THREE ways to ensure it happens
-          updateConnectionStatusDisplay();
-          setTimeout(() => updateConnectionStatusDisplay(), 0);
-          setTimeout(() => updateConnectionStatusDisplay(), 10);
+          setConnectionStatus('✅ Phone Connected — ready to send notes', 'rgba(0, 180, 0, 0.8)', true);
           console.log('[DESKTOP] Sending initial notes to phone');
           sendSlideNotestoPhone(0);
         }
@@ -928,14 +863,9 @@
       channel.onerror = (error) => {
         dataChannelReady = false;
         if (!isMobile()) {
-          // Update UI immediately
-          updateConnectionStatusDisplay();
-          setTimeout(() => updateConnectionStatusDisplay(), 0);
+          setConnectionStatus('❌ Connection error', 'rgba(255, 0, 0, 0.8)', false);
         }
-        console.error(deviceType, 'Data Channel Error:');
-        console.error('  - Error object:', error);
-        console.error('  - Error message:', error.message || 'No message');
-        console.error('  - Error name:', error.name || 'No name');
+        console.error(deviceType, 'Data Channel Error:', error);
         console.error('  - Channel state:', channel.readyState);
         console.error('  - RTCPeerConnection state:', peerConnection ? peerConnection.connectionState : 'No peer connection');
         console.error('  - RTCPeerConnection ICE state:', peerConnection ? peerConnection.iceConnectionState : 'No ICE state');
@@ -945,9 +875,7 @@
         console.log(deviceType, 'Data Channel CLOSED');
         dataChannelReady = false;
         if (!isMobile()) {
-          // Update UI immediately
-          updateConnectionStatusDisplay();
-          setTimeout(() => updateConnectionStatusDisplay(), 0);
+          setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
         }
       };
 
@@ -1146,17 +1074,13 @@
       peerConnection = new RTCPeerConnection(config);
       console.log('[DESKTOP] RTCPeerConnection created');
       
-      // Add peer connection state monitors
+      // Add peer connection state monitors (logging only)
       peerConnection.onconnectionstatechange = () => {
         console.log('[DESKTOP] Connection State Changed:', peerConnection.connectionState);
-        // Update immediately on state change
-        setTimeout(() => updateConnectionStatusDisplay(), 0);
       };
       
       peerConnection.oniceconnectionstatechange = () => {
         console.log('[DESKTOP] ICE Connection State Changed:', peerConnection.iceConnectionState);
-        // Update immediately on state change
-        setTimeout(() => updateConnectionStatusDisplay(), 0);
       };
       
       peerConnection.onicegatheringstatechange = () => {
@@ -1173,8 +1097,7 @@
       dataChannel = peerConnection.createDataChannel("controls");
       console.log('[DESKTOP] Data channel created, state:', dataChannel.readyState);
       setupDataChannel(dataChannel);
-      updateConnectionStatusDisplay();
-      startStatusPolling();
+      setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
 
       const offer = await peerConnection.createOffer();
       console.log('[DESKTOP] Offer created');
@@ -1182,9 +1105,23 @@
       await peerConnection.setLocalDescription(offer);
       console.log('[DESKTOP] Local description set');
 
-      // Wait for phone to request the offer (instead of sending immediately)
+      // Socket.IO: phone-joined fires the INSTANT phone loads the page (server-driven, real-time)
+      socket.on('phone-joined', () => {
+        console.log('[DESKTOP] Phone joined! Updating status...');
+        setConnectionStatus('⏳ Phone on page, establishing connection...', 'rgba(255, 165, 0, 0.8)', false);
+        socket.emit('offer', offer);
+      });
+
+      // Socket.IO: phone-left fires the INSTANT phone disconnects
+      socket.on('phone-left', () => {
+        console.log('[DESKTOP] Phone left!');
+        dataChannelReady = false;
+        setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
+      });
+
+      // phone-ready is now handled by phone-joined above, but keep as fallback
       socket.on('phone-ready', () => {
-        console.log('[DESKTOP] Phone is ready, sending offer');
+        console.log('[DESKTOP] Phone ready signal received (fallback)');
         socket.emit('offer', offer);
       });
 
@@ -1196,16 +1133,10 @@
         try {
           console.log('[DESKTOP] Received answer from phone');
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-          console.log('[DESKTOP] Remote description set - CONNECTION SHOULD BE ESTABLISHED');
-          document.getElementById('connection-status').textContent = '✅ Phone Connected!';
+          console.log('[DESKTOP] Remote description set - WebRTC handshake complete');
         } catch (error) {
           console.error('[DESKTOP] Error handling answer:', error);
         }
-      });
-
-      socket.on('disconnect', () => {
-        console.log('[DESKTOP] Socket disconnected');
-        document.getElementById('connection-status').textContent = '⚠️ Connection Lost';
       });
     }
 
