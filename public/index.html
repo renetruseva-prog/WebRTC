@@ -151,10 +151,24 @@
         <button class="upload-btn" id="upload-file-btn">Upload File</button>
       </div>
 
-      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
         <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
         <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6" cols="40"></textarea>
         <button class="upload-btn" id="load-slides-btn">Load Slides</button>
+      </div>
+
+      <!-- Notes Editor Section -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
+        <label style="font-weight: bold; font-size: 14px;">📝 Add Notes:</label>
+        <div style="margin-top: 8px; margin-bottom: 8px;">
+          <label style="font-size: 12px; opacity: 0.8;">Slide:</label>
+          <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 4px;">
+            <option>Select a slide...</option>
+          </select>
+        </div>
+        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" cols="40" style="margin-bottom: 8px;"></textarea>
+        <button class="upload-btn" id="save-note-btn" style="width: 100%; background: #55aa55;">Save Note</button>
+        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55ff55; color: #000; margin-top: 4px;">Send Notes to Phone</button>
       </div>
 
       <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-top: 10px; width: 100%;">Show QR</button>
@@ -170,6 +184,10 @@
             <p style="font-size: 18px; margin-top: 40px; opacity: 0.7;">Use <code>---</code> to separate slides</p>
           </section>
         </div>
+      </div>
+      <!-- Desktop Timer Display -->
+      <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
+        <span id="desktop-timer-display">00:00</span>
       </div>
     </div>
 
@@ -383,6 +401,9 @@
       intervalId: null
     };
 
+    // Custom Notes Store (per slide)
+    let customNotes = {};
+
     // WebRTC Configuration
     const config = {
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
@@ -446,7 +467,13 @@
     }
 
     function updateTimerDisplay() {
-      document.getElementById('timer-display').textContent = formatTime(timerState.elapsedSeconds);
+      const timeStr = formatTime(timerState.elapsedSeconds);
+      document.getElementById('timer-display').textContent = timeStr;
+      // Also update desktop timer if visible
+      const desktopTimer = document.getElementById('desktop-timer-display');
+      if (desktopTimer) {
+        desktopTimer.textContent = timeStr;
+      }
     }
 
     function startTimer() {
@@ -542,6 +569,13 @@
         Reveal_Instance.sync();
       }
 
+      // Populate slide dropdown and show timer
+      populateSlideDropdown();
+      document.getElementById('desktop-timer').style.display = 'block';
+      
+      // Clear custom notes for new slides
+      customNotes = {};
+
       // Send initial slide notes to phone
       sendSlideNotestoPhone(0);
     }
@@ -565,17 +599,89 @@
         Reveal_Instance.sync();
       }
 
+      // Populate slide dropdown and show timer
+      populateSlideDropdown();
+      document.getElementById('desktop-timer').style.display = 'block';
+      
+      // Clear custom notes for new slides
+      customNotes = {};
+
       // Send initial slide notes to phone
       sendSlideNotestoPhone(0);
+    }    function sendSlideNotestoPhone(slideIndex) {
+      // Check custom notes first, then use slide data-notes
+      let notes = customNotes[slideIndex];
+      
+      if (!notes) {
+        const slides = document.querySelectorAll('.reveal .slides section');
+        if (slides[slideIndex]) {
+          notes = slides[slideIndex].getAttribute('data-notes') || 'No notes for this slide';
+        } else {
+          notes = 'No notes for this slide';
+        }
+      }
+
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
+      }
     }
 
-    function sendSlideNotestoPhone(slideIndex) {
+    function populateSlideDropdown() {
       const slides = document.querySelectorAll('.reveal .slides section');
-      if (slides[slideIndex]) {
-        const notes = slides[slideIndex].getAttribute('data-notes') || 'No notes for this slide';
-        if (dataChannel && dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
+      const select = document.getElementById('note-slide-select');
+      select.innerHTML = '';
+      
+      slides.forEach((slide, index) => {
+        const option = document.createElement('option');
+        const slideTitle = slide.textContent.split('\n')[0].substring(0, 30) || `Slide ${index + 1}`;
+        option.value = index;
+        option.textContent = `Slide ${index + 1}: ${slideTitle}`;
+        select.appendChild(option);
+      });
+    }
+
+    function updateNoteEditorForSlide() {
+      const select = document.getElementById('note-slide-select');
+      const noteEditor = document.getElementById('note-editor');
+      const slideIndex = parseInt(select.value);
+      
+      if (slideIndex >= 0) {
+        noteEditor.value = customNotes[slideIndex] || '';
+      } else {
+        noteEditor.value = '';
+      }
+    }
+
+    function saveNoteForSlide() {
+      const select = document.getElementById('note-slide-select');
+      const noteEditor = document.getElementById('note-editor');
+      const slideIndex = parseInt(select.value);
+      
+      if (slideIndex >= 0) {
+        customNotes[slideIndex] = noteEditor.value;
+        alert(`Note saved for Slide ${slideIndex + 1}!`);
+      } else {
+        alert('Please select a slide first');
+      }
+    }
+
+    function sendAllNotesToPhone() {
+      const slides = document.querySelectorAll('.reveal .slides section');
+      let allNotesSent = 0;
+      
+      slides.forEach((slide, index) => {
+        if (customNotes[index]) {
+          if (dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(JSON.stringify({ type: 'slide-notes', slideIndex: index, content: customNotes[index] }));
+            allNotesSent++;
+          }
         }
+      });
+      
+      if (allNotesSent > 0) {
+        alert(`Sent ${allNotesSent} notes to phone!`);
+      } else {
+        alert('No custom notes to send. Please save notes first.');
       }
     }
 
@@ -603,6 +709,12 @@
           if (!isMobile()) {
             console.log("[Desktop] Ignoring notes message");
           } else {
+            document.getElementById('speaker-notes').textContent = parsedMessage.content;
+          }
+        } else if (parsedMessage.type === 'slide-notes') {
+          if (isMobile()) {
+            // Store notes for this slide (optional feature for future use)
+            console.log(`[Phone] Received notes for slide ${parsedMessage.slideIndex}`);
             document.getElementById('speaker-notes').textContent = parsedMessage.content;
           }
         } else if (parsedMessage.type === 'next') {
@@ -695,6 +807,11 @@
           reader.readAsText(file);
         }
       });
+
+      // Setup note editor controls
+      document.getElementById('note-slide-select').addEventListener('change', updateNoteEditorForSlide);
+      document.getElementById('save-note-btn').addEventListener('click', saveNoteForSlide);
+      document.getElementById('send-notes-btn').addEventListener('click', sendAllNotesToPhone);
 
       // Initialize Reveal.js
       Reveal_Instance = new Reveal({
