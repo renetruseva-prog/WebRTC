@@ -18,13 +18,16 @@
 
     #desktop {
       text-align: center;
-      padding-top: 50px;
       position: relative;
       width: 100%;
       height: 100vh;
       margin: 0;
       padding: 0;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
 
     #qr img {
@@ -139,11 +142,11 @@
 <body>
 
   <div id="desktop">
-    <!-- Upload Controls -->
-    <div class="upload-overlay">
+    <!-- Upload Controls (Hidden by default) -->
+    <div class="upload-overlay hidden" id="upload-overlay">
       <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
       
-      <div style="margin-bottom: 10px;">
+      <div style="margin-bottom: 10px; margin-top: 10px;">
         <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin-bottom: 8px;" />
         <button class="upload-btn" id="upload-file-btn">Upload File</button>
       </div>
@@ -169,6 +172,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Toggle Button for Upload Panel -->
+    <button class="toggle-overlay-btn" id="toggle-overlay-btn">Start the process</button>
 
     <!-- QR Code Modal -->
     <div id="qr-overlay" class="qr-overlay hidden">
@@ -211,11 +217,9 @@
   <!-- Additional Styles for Slide Upload -->
   <style>
     .reveal-container {
-      position: absolute;
-      top: 0;
-      left: 0;
+      position: relative;
       width: 100%;
-      height: 100%;
+      flex: 1;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -224,10 +228,14 @@
     .reveal {
       width: 100%;
       height: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
     .reveal .slides {
       text-align: left;
+      width: 100%;
+      height: 100%;
     }
 
     .reveal section {
@@ -236,14 +244,50 @@
     }
 
     .upload-overlay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
+      position: fixed;
+      bottom: 10px;
+      left: 50;
       z-index: 100;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.9);
       padding: 15px;
       border-radius: 8px;
       color: white;
+      max-width: 350px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .upload-overlay.hidden {
+      transform: translateX(-400px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle-overlay-btn {
+      padding: 20px 50px;
+      margin-bottom: 6rem;
+      background: #ff5555;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 20px;
+      transition: background 0.2s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      margin-top: 20px;
+      z-index: 99;
+    }
+
+    .toggle-overlay-btn:hover {
+      background: #ff7777;
+      transform: scale(1.05);
+    }
+
+    .upload-overlay:not(.hidden) ~ .toggle-overlay-btn {
+      display: none;
     }
 
     .upload-input {
@@ -586,6 +630,12 @@
       // Get URL and initial QR (don't show yet)
       const response = await fetch('/config');
       const data = await response.json();
+
+      // Setup toggle overlay button
+      document.getElementById('toggle-overlay-btn').addEventListener('click', () => {
+        const overlay = document.getElementById('upload-overlay');
+        overlay.classList.toggle('hidden');
+      });
 
       // Setup QR button listener
       document.getElementById('show-qr-btn').addEventListener('click', () => {
