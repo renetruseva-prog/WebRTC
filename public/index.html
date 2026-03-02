@@ -17,17 +17,12 @@
     }
 
     #desktop {
-      text-align: center;
       position: relative;
       width: 100%;
       height: 100vh;
       margin: 0;
       padding: 0;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
     }
 
     #qr img {
@@ -194,6 +189,11 @@
   <div id="desktop">
     <!-- Upload Controls (Hidden by default) -->
     <div class="upload-overlay hidden" id="upload-overlay">
+      <div class="upload-overlay-header">
+        <h2>📋 Presentation Controls</h2>
+        <button class="close-overlay-btn" id="close-overlay-btn" title="Close panel">✕</button>
+      </div>
+      
       <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
       
       <div style="margin-bottom: 10px; margin-top: 10px;">
@@ -203,7 +203,7 @@
 
       <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
         <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
-        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6" cols="40"></textarea>
+        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6"></textarea>
         <button class="upload-btn" id="load-slides-btn">Load Slides</button>
       </div>
 
@@ -216,7 +216,7 @@
             <option>Select a slide...</option>
           </select>
         </div>
-        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" cols="40" style="margin-bottom: 8px;"></textarea>
+        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" style="margin-bottom: 8px;"></textarea>
         <button class="upload-btn" id="save-note-btn" style="width: 100%; background: #55aa55;">Save Note</button>
         <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55ff55; color: #000; margin-top: 4px;">Send Notes to Phone</button>
       </div>
@@ -261,6 +261,7 @@
 
   <div id="mobile" class="hidden">
     <h1>🎤 Presenter View</h1>
+    <div id="presentation-name" style="text-align: center; font-size: 14px; opacity: 0.8; margin-bottom: 10px;">No presentation uploaded</div>
     
     <div class="presenter-container">
       <!-- Speaker Notes Section -->
@@ -296,9 +297,11 @@
   <!-- Additional Styles for Slide Upload -->
   <style>
     .reveal-container {
-      position: relative;
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      flex: 1;
+      height: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -322,18 +325,24 @@
       vertical-align: middle;
     }
 
+    .reveal .controls .controls-arrow {
+      animation: none !important;
+      transition: none !important;
+    }
+
     .upload-overlay {
       position: fixed;
       bottom: 10px;
-      left: 50;
+      left: 40%;
       z-index: 100;
       background: rgba(0, 0, 0, 0.9);
       padding: 15px;
       border-radius: 8px;
       color: white;
-      max-width: 350px;
+      width: 320px;
       max-height: 80vh;
       overflow-y: auto;
+      overflow-x: hidden;
       border: 2px solid rgba(255, 255, 255, 0.2);
       transition: transform 0.3s ease, opacity 0.3s ease;
     }
@@ -345,8 +354,11 @@
     }
 
     .toggle-overlay-btn {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
       padding: 20px 50px;
-      margin-bottom: 6rem;
       background: #ff5555;
       color: white;
       border: none;
@@ -356,17 +368,56 @@
       font-size: 20px;
       transition: background 0.2s;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-      margin-top: 20px;
       z-index: 99;
+      white-space: nowrap;
     }
 
     .toggle-overlay-btn:hover {
       background: #ff7777;
-      transform: scale(1.05);
     }
 
     .upload-overlay:not(.hidden) ~ .toggle-overlay-btn {
       display: none;
+    }
+
+    .upload-btn {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .upload-overlay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .upload-overlay-header h2 {
+      margin: 0;
+      font-size: 16px;
+      flex: 1;
+    }
+
+    .close-overlay-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .close-overlay-btn:hover {
+      opacity: 1;
     }
 
     .upload-input {
@@ -376,6 +427,8 @@
       background: rgba(255, 255, 255, 0.1);
       color: white;
       border: 1px solid rgba(255, 255, 255, 0.3);
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .upload-btn {
@@ -495,6 +548,7 @@
     let phoneNotes = {};
     let currentPhoneSlide = 0;
     let totalPhoneSlides = 0;
+    let presentationName = 'No presentation uploaded';
 
     // Data Channel State
     let dataChannelReady = false;
@@ -625,7 +679,8 @@
       });
     }
 
-    function loadSlides(markdown) {
+    function loadSlides(markdown, fileName = 'Presentation') {
+      presentationName = fileName.replace(/\.(md|markdown|txt)$/i, '');
       const slides = parseMarkdownSlides(markdown);
       const slidesContainer = document.getElementById('slides-container');
       slidesContainer.innerHTML = '';
@@ -679,7 +734,8 @@
       sendSlideNotestoPhone(0);
     }
 
-    function loadPDFSlides(pdfSlides) {
+    function loadPDFSlides(pdfSlides, fileName = 'Presentation') {
+      presentationName = fileName.replace(/\.pdf$/i, '');
       const slidesContainer = document.getElementById('slides-container');
       slidesContainer.innerHTML = '';
 
@@ -706,9 +762,17 @@
       // Clear custom notes for new slides
       customNotes = {};
 
-      // Send slide count and initial notes to phone
+      // Send presentation name, slide count and initial notes to phone
+      sendPresentationNametoPhone();
       sendSlideCountToPhone();
       sendSlideNotestoPhone(0);
+    }
+
+    function sendPresentationNametoPhone() {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'presentation-name', name: presentationName }));
+        console.log('[DESKTOP] Sent presentation name to phone:', presentationName);
+      }
     }
 
     function sendSlideNotestoPhone(slideIndex) {
@@ -781,6 +845,11 @@
     }
 
     function displayPhoneNote(slideIndex) {
+      if (totalPhoneSlides === 0) {
+        document.getElementById('speaker-notes').textContent = 'No presentation uploaded';
+        document.getElementById('slide-info').textContent = '';
+        return;
+      }
       const note = phoneNotes[slideIndex] || 'No notes for this slide';
       document.getElementById('speaker-notes').textContent = note;
       currentPhoneSlide = slideIndex;
@@ -936,10 +1005,19 @@
             }
             updateSlideNavigationButtons();
           }
+        } else if (parsedMessage.type === 'presentation-name') {
+          if (isMobile()) {
+            console.log(`[Phone] Received presentation name: ${parsedMessage.name}`);
+            presentationName = parsedMessage.name;
+            document.getElementById('presentation-name').textContent = presentationName;
+          }
         } else if (parsedMessage.type === 'slide-count') {
           if (isMobile()) {
             console.log(`[Phone] Received total slide count: ${parsedMessage.total}`);
             totalPhoneSlides = parsedMessage.total;
+            if (totalPhoneSlides > 0) {
+              displayPhoneNote(0);
+            }
             updateSlideInfo();
             updateSlideNavigationButtons();
           }
@@ -1019,6 +1097,12 @@
         overlay.classList.toggle('hidden');
       });
 
+      // Setup close overlay button
+      document.getElementById('close-overlay-btn').addEventListener('click', () => {
+        const overlay = document.getElementById('upload-overlay');
+        overlay.classList.add('hidden');
+      });
+
       // Setup QR button listener
       document.getElementById('show-qr-btn').addEventListener('click', () => {
         renderQRCode(data.url);
@@ -1034,7 +1118,7 @@
       document.getElementById('load-slides-btn').addEventListener('click', () => {
         const markdown = document.getElementById('markdown-input').value;
         if (markdown.trim()) {
-          loadSlides(markdown);
+          loadSlides(markdown, 'Pasted Presentation');
         }
       });
 
@@ -1054,13 +1138,13 @@
             if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
               // Handle PDF - render pages as images
               const pdfSlides = await extractTextFromPDF(e.target.result);
-              loadPDFSlides(pdfSlides);
+              loadPDFSlides(pdfSlides, file.name);
               console.log('PDF loaded with', pdfSlides.length, 'pages');
             } else {
               // Handle text files
               const content = e.target.result;
               document.getElementById('markdown-input').value = content;
-              loadSlides(content);
+              loadSlides(content, file.name);
               console.log('Slides loaded from file:', file.name);
             }
           } catch (error) {
@@ -1092,6 +1176,7 @@
         margin: 0.1,
         minScale: 0.2,
         maxScale: 2.0,
+        controlsTutorial: false,
         plugins: [ RevealMarkdown, RevealNotes ]
       });
 
