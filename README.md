@@ -211,7 +211,7 @@ app.get('/config', (req, res) => {
 **Fix (AI):** Added `totalPhoneSlides` variable; desktop sends `{ type: 'slide-count', total: N }` over the data channel when slides load.  
 **I wrote:** The `slide-count` message handler on the phone side, after understanding the pattern from the existing `slide-notes` handler:
 ```javascript
-} else if (parsedMessage.type === 'slide-count') {
+ else if (parsedMessage.type === 'slide-count') {
   if (isMobile()) {
     totalPhoneSlides = parsedMessage.total;
     updateSlideInfo();
@@ -273,7 +273,7 @@ socket.on('phone-left', () => {
 ```
 
 **To-fix**
-- **FIX** the notes showing the text from the slides instead of notes the user inputed themselves!!!!
+- **FIX** the notes showing the text from the slides instead of notes the user inputed themselves!!!! - ✅
 
 **UI-improvements** (make a branch)
 - "Save note" button and "Send Notes to Phone" button should give visual feedback to the user instead of an alert -> that's annoying, slow and frustrating

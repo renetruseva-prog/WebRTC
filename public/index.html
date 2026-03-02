@@ -716,7 +716,7 @@
       const notes = customNotes[slideIndex] || 'No notes for this slide';
 
       if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
+        dataChannel.send(JSON.stringify({ type: 'notes', slideIndex, content: notes }));
       }
     }
 
@@ -755,16 +755,28 @@
       }
     }
 
+    function showButtonFeedback(buttonElement, successMessage, duration = 3000) {
+      const originalText = buttonElement.textContent;
+      buttonElement.textContent = successMessage;
+      buttonElement.style.opacity = '0.7';
+      
+      setTimeout(() => {
+        buttonElement.textContent = originalText;
+        buttonElement.style.opacity = '1';
+      }, duration);
+    }
+
     function saveNoteForSlide() {
       const select = document.getElementById('note-slide-select');
       const noteEditor = document.getElementById('note-editor');
       const slideIndex = parseInt(select.value);
+      const saveBtn = document.getElementById('save-note-btn');
       
       if (slideIndex >= 0) {
         customNotes[slideIndex] = noteEditor.value;
-        alert(`Note saved for Slide ${slideIndex + 1}!`);
+        showButtonFeedback(saveBtn, 'Note Saved ✅');
       } else {
-        alert('Please select a slide first');
+        showButtonFeedback(saveBtn, 'Select a slide first ⚠️', 2000);
       }
     }
 
@@ -815,9 +827,11 @@
     }
 
     function sendAllNotesToPhone() {
+      const sendBtn = document.getElementById('send-notes-btn');
+      
       if (!dataChannel) {
         console.error('[DESKTOP] No data channel exists');
-        alert('❌ No data channel. Please reload and scan QR code again.');
+        showButtonFeedback(sendBtn, 'Reload & reconnect ⚠️', 3000);
         return;
       }
       
@@ -828,7 +842,7 @@
           iceConnectionState: peerConnection?.iceConnectionState,
           dataChannelReady: dataChannelReady
         });
-        alert(`❌ Phone not ready. Data channel state: ${dataChannel.readyState}\n\nTry:\n1. Reload the phone page\n2. Wait for connection to fully establish\n3. Try again in a few seconds`);
+        showButtonFeedback(sendBtn, 'Phone connecting... try again', 3000);
         return;
       }
 
@@ -848,9 +862,9 @@
       }
       
       if (allNotesSent > 0) {
-        alert(`✅ Sent ${allNotesSent} note(s) to phone!`);
+        showButtonFeedback(sendBtn, `Sent ${allNotesSent} note(s) ✅`);
       } else {
-        alert('⚠️ No notes saved yet. Please:\n1. Select a slide\n2. Write notes\n3. Click "Save Note"\n4. Then send');
+        showButtonFeedback(sendBtn, 'No notes to send ⚠️', 2500);
       }
     }
 
@@ -903,8 +917,13 @@
           if (!isMobile()) {
             console.log("[Desktop] Ignoring notes message");
           } else {
-            console.log('[PHONE] Displaying speaker notes');
-            document.getElementById('speaker-notes').textContent = parsedMessage.content;
+            console.log(`[PHONE] Received notes for slide ${parsedMessage.slideIndex}: ${parsedMessage.content.substring(0, 50)}...`);
+            // Store notes for this slide consistently with slide-notes messages
+            phoneNotes[parsedMessage.slideIndex] = parsedMessage.content;
+            // If this is the current slide, display the updated note
+            if (parsedMessage.slideIndex === currentPhoneSlide) {
+              displayPhoneNote(currentPhoneSlide);
+            }
           }
         } else if (parsedMessage.type === 'slide-notes') {
           if (isMobile()) {
