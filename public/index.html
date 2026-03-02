@@ -712,17 +712,8 @@
     }
 
     function sendSlideNotestoPhone(slideIndex) {
-      // Check custom notes first, then use slide data-notes
-      let notes = customNotes[slideIndex];
-      
-      if (!notes) {
-        const slides = document.querySelectorAll('.reveal .slides section');
-        if (slides[slideIndex]) {
-          notes = slides[slideIndex].getAttribute('data-notes') || 'No notes for this slide';
-        } else {
-          notes = 'No notes for this slide';
-        }
-      }
+      // Only use user-written custom notes — never fall back to slide content
+      const notes = customNotes[slideIndex] || 'No notes for this slide';
 
       if (dataChannel && dataChannel.readyState === 'open') {
         dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
