@@ -282,7 +282,7 @@ socket.on('phone-left', () => {
 - fix **horizontal overflow** on **.upload-overlay** - ✅
 - create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide - ✅
 - when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset
-- create a better/prettier phone UI (no purple)
+- create a better/prettier phone UI (no purple) - ?
 
 - **For week2** -> introduce the slides changing by tilting the phone
 - introduce a feature where the user can type in how long the presentation should be and at what point (1 minute left? 30 seconds left?) should the phone buzz to remind the speaker they should be finishing the presentation soon. (branch **feature/timer**)

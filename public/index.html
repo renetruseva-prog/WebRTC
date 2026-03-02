@@ -287,7 +287,8 @@
         <div class="timer-display" id="timer-display">00:00</div>
         <div class="timer-controls">
           <button class="timer-btn" id="timer-start">Start</button>
-          <button class="timer-btn" id="timer-pause">Pause</button>
+          <button class="timer-btn" id="timer-pause" style="display: none;">Pause</button>
+          <button class="timer-btn" id="timer-resume" style="display: none;">Resume</button>
           <button class="timer-btn" id="timer-reset">Reset</button>
         </div>
       </div>
@@ -631,6 +632,37 @@
       }
     }
 
+    function updateTimerButtonStates() {
+      const startBtn = document.getElementById('timer-start');
+      const pauseBtn = document.getElementById('timer-pause');
+      const resumeBtn = document.getElementById('timer-resume');
+      
+      if (!isMobile()) return; // Only on phone
+      
+      if (timerState.isRunning) {
+        // Timer is running: show Pause button
+        if (startBtn) startBtn.style.display = 'none';
+        if (pauseBtn) pauseBtn.style.display = 'block';
+        if (resumeBtn) resumeBtn.style.display = 'none';
+      } else if (timerState.elapsedSeconds > 0) {
+        // Timer is paused with time elapsed: show Resume button
+        if (startBtn) startBtn.style.display = 'none';
+        if (pauseBtn) pauseBtn.style.display = 'none';
+        if (resumeBtn) resumeBtn.style.display = 'block';
+      } else {
+        // Timer is reset: show Start button
+        if (startBtn) startBtn.style.display = 'block';
+        if (pauseBtn) pauseBtn.style.display = 'none';
+        if (resumeBtn) resumeBtn.style.display = 'none';
+      }
+    }
+
+    function sendTimerControlToDesktop(action) {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'timer-control', action }));
+      }
+    }
+
     function startTimer() {
       if (timerState.isRunning) return;
       timerState.isRunning = true;
@@ -638,6 +670,8 @@
         timerState.elapsedSeconds++;
         updateTimerDisplay();
       }, 1000);
+      updateTimerButtonStates();
+      sendTimerControlToDesktop('start');
     }
 
     function pauseTimer() {
@@ -646,12 +680,27 @@
         clearInterval(timerState.intervalId);
         timerState.intervalId = null;
       }
+      updateTimerButtonStates();
+      sendTimerControlToDesktop('pause');
+    }
+
+    function resumeTimer() {
+      if (timerState.isRunning) return;
+      timerState.isRunning = true;
+      timerState.intervalId = setInterval(() => {
+        timerState.elapsedSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+      updateTimerButtonStates();
+      sendTimerControlToDesktop('resume');
     }
 
     function resetTimer() {
       pauseTimer();
       timerState.elapsedSeconds = 0;
       updateTimerDisplay();
+      updateTimerButtonStates();
+      sendTimerControlToDesktop('reset');
     }
 
     function renderQRCode(url) {
@@ -1025,6 +1074,19 @@
             updateSlideInfo();
             updateSlideNavigationButtons();
           }
+        } else if (parsedMessage.type === 'timer-control') {
+          if (!isMobile()) {
+            console.log(`[Desktop] Received timer control: ${parsedMessage.action}`);
+            if (parsedMessage.action === 'start') {
+              startTimer();
+            } else if (parsedMessage.action === 'pause') {
+              pauseTimer();
+            } else if (parsedMessage.action === 'resume') {
+              resumeTimer();
+            } else if (parsedMessage.action === 'reset') {
+              resetTimer();
+            }
+          }
         } else if (parsedMessage.type === 'next') {
           if (!isMobile()) {
             console.log("[Desktop] Moving to next slide...");
@@ -1292,6 +1354,7 @@
       // Setup timer controls
       document.getElementById('timer-start').addEventListener('click', startTimer);
       document.getElementById('timer-pause').addEventListener('click', pauseTimer);
+      document.getElementById('timer-resume').addEventListener('click', resumeTimer);
       document.getElementById('timer-reset').addEventListener('click', resetTimer);
 
       // Setup slide navigation controls
