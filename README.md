@@ -278,9 +278,9 @@ socket.on('phone-left', () => {
 **UI-improvements** (make a branch)
 - "Save note" button and "Send Notes to Phone" button should give visual feedback to the user instead of an alert -> that's annoying, slow and frustrating - ✅
 - the phone view should show when there is no presentation (now it says "No notes for this slide + Slide 1/1 but there are no slides") - ✅
-- on Desktop you should be able to open and close the .upload-overlay so it doesn't cover the slides -> and it should remember the typed/input information even when closed ✅
-- fix **horizontal overflow** on **.upload-overlay**
-- create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide 
+- on Desktop you should be able to open and close the .upload-overlay so it doesn't cover the slides -> and it should remember the typed/input information even when closed - ✅
+- fix **horizontal overflow** on **.upload-overlay** - ✅
+- create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide - ✅
 - when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset
 - create a better/prettier phone UI (no purple)
 
