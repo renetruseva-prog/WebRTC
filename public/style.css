@@ -1,0 +1,377 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#desktop {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#qr img {
+  margin-top: 20px;
+}
+
+#mobile {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#mobile h1 {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 18px;
+  color: #ffd700;
+}
+
+.presenter-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.notes-area {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  min-height: 150px;
+}
+
+.notes-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+
+#speaker-notes {
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  min-height: 100px;
+}
+
+.slide-nav-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: space-between;
+}
+
+.slide-nav-buttons button {
+  flex: 1;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.2s;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.slide-nav-buttons button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.02);
+}
+
+.slide-nav-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-slide-info {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 10px;
+}
+
+#mobile .toggle-overlay-btn {
+  display: none;
+}
+
+.timer-container {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.timer-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+
+.timer-display {
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  margin-bottom: 10px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.timer-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.timer-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  background: #ffd700;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+  flex: 1;
+  transition: background 0.2s;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.timer-btn:hover {
+  background: #ffed4e;
+}
+
+.timer-btn:active {
+  transform: scale(0.98);
+}
+
+.hidden {
+  display: none;
+}
+
+/* Override display:flex on #desktop when hidden */
+#desktop.hidden {
+  display: none !important;
+}
+
+.reveal-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reveal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.reveal .slides {
+  text-align: left;
+  width: 100%;
+  height: 100%;
+}
+
+.reveal section {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.reveal .controls .controls-arrow {
+  animation: none !important;
+  transition: none !important;
+}
+
+.upload-overlay {
+  position: fixed;
+  bottom: 10px;
+  left: 40%;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 15px;
+  border-radius: 8px;
+  color: white;
+  width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.upload-overlay.hidden {
+  transform: translateX(-400px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggle-overlay-btn {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 20px 50px;
+  background: #ff5555;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 20px;
+  transition: background 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  z-index: 99;
+  white-space: nowrap;
+}
+
+.toggle-overlay-btn:hover {
+  background: #ff7777;
+  transform: translateX(-50%) scale(1.05);
+}
+
+.upload-overlay:not(.hidden) ~ .toggle-overlay-btn {
+  display: none;
+}
+
+.upload-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.upload-overlay-header h2 {
+  margin: 0;
+  font-size: 16px;
+  flex: 1;
+}
+
+.close-overlay-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-overlay-btn:hover {
+  opacity: 1;
+}
+
+.upload-input {
+  margin: 10px 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.upload-btn {
+  padding: 8px 15px;
+  background: #ff5555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.upload-btn:hover {
+  background: #ff7777;
+}
+
+.qr-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  z-index: 1000;
+  text-align: center;
+  max-width: 400px;
+}
+
+.qr-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.qr-overlay.hidden {
+  display: none;
+}
+
+#qr {
+  margin: 20px 0;
+}
+
+.close-qr {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 15px;
+}
+
+.close-qr:hover {
+  background: #555;
+}
