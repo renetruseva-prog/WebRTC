@@ -5,18 +5,186 @@
   <title>WebRTC Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #desktop {
       text-align: center;
-      padding-top: 50px;
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
 
     #qr img {
       margin-top: 20px;
     }
 
+    #mobile {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #mobile h1 {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 18px;
+      color: #ffd700;
+    }
+
+    .presenter-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .notes-area {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      min-height: 150px;
+    }
+
+    .notes-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    #speaker-notes {
+      font-size: 16px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 100px;
+    }
+
+    .slide-nav-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      justify-content: space-between;
+    }
+
+    .slide-nav-buttons button {
+      flex: 1;
+      padding: 12px 15px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .slide-nav-buttons button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.02);
+    }
+
+    .slide-nav-buttons button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .current-slide-info {
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 10px;
+    }
+
+    #mobile .toggle-overlay-btn {
+      display: none;
+    }
+
+    .timer-container {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .timer-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .timer-display {
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .timer-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #ffd700;
+      color: #333;
+      font-weight: bold;
+      cursor: pointer;
+      flex: 1;
+      transition: background 0.2s;
+    }
+
+    .timer-btn:hover {
+      background: #ffed4e;
+    }
+
+    .timer-btn:active {
+      transform: scale(0.98);
+    }
+
     .hidden {
       display: none;
+    }
+
+    /* Override display:flex on #desktop when hidden */
+    #desktop.hidden {
+      display: none !important;
     }
   </style>
 </head>
@@ -24,21 +192,312 @@
 <body>
 
   <div id="desktop">
-    <h1>Scan to Connect</h1>
-    <div id="qr"></div>
+    <!-- Upload Controls (Hidden by default) -->
+    <div class="upload-overlay hidden" id="upload-overlay">
+      <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
+      
+      <div style="margin-bottom: 10px; margin-top: 10px;">
+        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin-bottom: 8px;" />
+        <button class="upload-btn" id="upload-file-btn">Upload File</button>
+      </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
+        <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
+        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6" cols="40"></textarea>
+        <button class="upload-btn" id="load-slides-btn">Load Slides</button>
+      </div>
+
+      <!-- Notes Editor Section -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
+        <label style="font-weight: bold; font-size: 14px;">📝 Add Notes:</label>
+        <div style="margin-top: 8px; margin-bottom: 8px;">
+          <label style="font-size: 12px; opacity: 0.8;">Slide:</label>
+          <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 4px;">
+            <option>Select a slide...</option>
+          </select>
+        </div>
+        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" cols="40" style="margin-bottom: 8px;"></textarea>
+        <button class="upload-btn" id="save-note-btn" style="width: 100%; background: #55aa55;">Save Note</button>
+        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55ff55; color: #000; margin-top: 4px;">Send Notes to Phone</button>
+      </div>
+
+      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-top: 10px; width: 100%;">Show QR</button>
+    </div>
+
+    <!-- Reveal.js Presentation Container -->
+    <div class="reveal-container">
+      <div class="reveal">
+        <div class="slides" id="slides-container">
+          <section>
+            <h2>WebRTC Presenter</h2>
+            <p>Upload a markdown file or paste slides above to begin</p>
+            <p style="font-size: 18px; margin-top: 40px; opacity: 0.7;">Use <code>---</code> to separate slides</p>
+          </section>
+        </div>
+      </div>
+      <!-- Desktop Timer Display -->
+      <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
+        <span id="desktop-timer-display">00:00</span>
+      </div>
+      <!-- Connection Status Display -->
+      <div id="connection-status-display" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none;">
+        <span id="connection-status-text">📡 Waiting for phone...</span>
+      </div>
+    </div>
+
+    <!-- Toggle Button for Upload Panel -->
+    <button class="toggle-overlay-btn" id="toggle-overlay-btn">Start the process</button>
+
+    <!-- QR Code Modal -->
+    <div id="qr-overlay" class="qr-overlay hidden">
+      <div class="qr-modal">
+        <h3>Scan to Connect Phone</h3>
+        <div id="qr"></div>
+        <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
+        <button class="close-qr" id="close-qr-btn">Close</button>
+      </div>
+    </div>
   </div>
 
   <div id="mobile" class="hidden">
-    <h1 style="color: rgb(184, 30, 30);">Hello from my phone!</h1>
+    <h1>🎤 Presenter View</h1>
+    
+    <div class="presenter-container">
+      <!-- Speaker Notes Section -->
+      <div class="notes-area">
+        <div class="notes-label">📝 Speaker Notes</div>
+        <div id="speaker-notes">Waiting for notes...</div>
+        <div class="current-slide-info" id="slide-info">Slide 1/?</div>
+      </div>
+
+      <!-- Slide Navigation -->
+      <div class="slide-nav-buttons">
+        <button id="prev-slide-btn" title="Previous slide">← Prev</button>
+        <button id="next-slide-btn" title="Next slide">Next →</button>
+      </div>
+
+      <!-- Timer Section -->
+      <div class="timer-container">
+        <div class="timer-label">⏱️ Presentation Timer</div>
+        <div class="timer-display" id="timer-display">00:00</div>
+        <div class="timer-controls">
+          <button class="timer-btn" id="timer-start">Start</button>
+          <button class="timer-btn" id="timer-pause">Pause</button>
+          <button class="timer-btn" id="timer-reset">Reset</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- Reveal.js CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+  
+  <!-- Additional Styles for Slide Upload -->
+  <style>
+    .reveal-container {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .reveal {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .reveal .slides {
+      text-align: left;
+      width: 100%;
+      height: 100%;
+    }
+
+    .reveal section {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .upload-overlay {
+      position: fixed;
+      bottom: 10px;
+      left: 50;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      color: white;
+      max-width: 350px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .upload-overlay.hidden {
+      transform: translateX(-400px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle-overlay-btn {
+      padding: 20px 50px;
+      margin-bottom: 6rem;
+      background: #ff5555;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 20px;
+      transition: background 0.2s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      margin-top: 20px;
+      z-index: 99;
+    }
+
+    .toggle-overlay-btn:hover {
+      background: #ff7777;
+      transform: scale(1.05);
+    }
+
+    .upload-overlay:not(.hidden) ~ .toggle-overlay-btn {
+      display: none;
+    }
+
+    .upload-input {
+      margin: 10px 0;
+      padding: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .upload-btn {
+      padding: 8px 15px;
+      background: #ff5555;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    .upload-btn:hover {
+      background: #ff7777;
+    }
+
+    .qr-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      z-index: 1000;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .qr-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .qr-overlay.hidden {
+      display: none;
+    }
+
+    #qr {
+      margin: 20px 0;
+    }
+
+    .close-qr {
+      background: #333;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .close-qr:hover {
+      background: #555;
+    }
+  </style>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 
   <script>
     const socket = io();
     let peerConnection;
     let dataChannel;
+    let Reveal_Instance;
+    let socketConnected = false;
+
+    // Wait for socket to connect before proceeding
+    socket.on('connect', () => {
+      socketConnected = true;
+      console.log('✅ Socket.IO connected! ID:', socket.id);
+      console.log('=== WebRTC Presenter App Starting ===');
+      init();
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('❌ Socket.IO connection error:', error);
+      alert('❌ Failed to connect to server. Make sure the server is running on port 3000.');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('⚠️ Socket.IO disconnected');
+    });
+
+    // Fallback: if socket doesn't connect in 5 seconds, show error
+    setTimeout(() => {
+      if (!socketConnected) {
+        console.error('❌ Socket.IO failed to connect after 5 seconds');
+        alert('❌ Cannot connect to server. Check:\n1. Server is running (npm run dev)\n2. You are using the correct URL\n3. Both devices are on the same network');
+      }
+    }, 5000);
+
+    // Timer State
+    let timerState = {
+      isRunning: false,
+      elapsedSeconds: 0,
+      intervalId: null
+    };
+
+    // Custom Notes Store (per slide)
+    let customNotes = {};
+
+    // Phone Notes Store and Navigation
+    let phoneNotes = {};
+    let currentPhoneSlide = 0;
+    let totalPhoneSlides = 0;
+
+    // Data Channel State
+    let dataChannelReady = false;
 
     // WebRTC Configuration
     const config = {
@@ -47,7 +506,94 @@
 
     // --- HELPER FUNCTIONS ---
     function isMobile() {
-      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const userAgent = navigator.userAgent;
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+      return isMobileUA;
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    async function extractTextFromPDF(arrayBuffer) {
+      try {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const slides = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          
+          // Render page to canvas
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+
+          await page.render({
+            canvasContext: context,
+            viewport
+          }).promise;
+
+          // Convert canvas to data URL (image)
+          const imageUrl = canvas.toDataURL('image/png');
+
+          // Try to extract text for notes
+          let pageText = '';
+          try {
+            const textContent = await page.getTextContent();
+            pageText = textContent.items.map(item => item.str).join(' ');
+          } catch (e) {
+            pageText = `Page ${i}`;
+          }
+
+          slides.push({
+            imageUrl,
+            text: pageText
+          });
+        }
+
+        return slides;
+      } catch (error) {
+        console.error('Error extracting PDF:', error);
+        throw new Error('Failed to parse PDF');
+      }
+    }
+
+    function updateTimerDisplay() {
+      const timeStr = formatTime(timerState.elapsedSeconds);
+      document.getElementById('timer-display').textContent = timeStr;
+      // Also update desktop timer if visible
+      const desktopTimer = document.getElementById('desktop-timer-display');
+      if (desktopTimer) {
+        desktopTimer.textContent = timeStr;
+      }
+    }
+
+    function startTimer() {
+      if (timerState.isRunning) return;
+      timerState.isRunning = true;
+      timerState.intervalId = setInterval(() => {
+        timerState.elapsedSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      timerState.isRunning = false;
+      if (timerState.intervalId) {
+        clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+      }
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      timerState.elapsedSeconds = 0;
+      updateTimerDisplay();
     }
 
     function renderQRCode(url) {
@@ -59,78 +605,707 @@
       document.getElementById('qr').innerHTML = qr.createImgTag(4);
     }
 
+    function parseMarkdownSlides(markdown) {
+      const slides = markdown.split('---').map(s => s.trim()).filter(s => s.length > 0);
+      return slides.map(slide => {
+        const lines = slide.split('\n');
+        let content = '';
+        let notes = '';
+        
+        // Split content and notes by "Notes:" marker
+        const notesIndex = slide.indexOf('Notes:');
+        if (notesIndex !== -1) {
+          content = slide.substring(0, notesIndex).trim();
+          notes = slide.substring(notesIndex + 6).trim();
+        } else {
+          content = slide;
+        }
+
+        return { content, notes };
+      });
+    }
+
+    function loadSlides(markdown) {
+      const slides = parseMarkdownSlides(markdown);
+      const slidesContainer = document.getElementById('slides-container');
+      slidesContainer.innerHTML = '';
+
+      slides.forEach((slideData, index) => {
+        const section = document.createElement('section');
+        section.setAttribute('data-notes', slideData.notes);
+        
+        let htmlContent = slideData.content;
+        // Try to use marked if available, otherwise use plain text
+        if (typeof marked !== 'undefined') {
+          try {
+            htmlContent = marked.parse(slideData.content);
+          } catch (e) {
+            console.warn('Marked parsing failed, using plain text:', e);
+            htmlContent = `<pre>${slideData.content}</pre>`;
+          }
+        } else {
+          // Fallback: convert basic markdown to HTML manually
+          htmlContent = slideData.content
+            .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+            .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+            .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+            .replace(/\n/g, '<br>');
+        }
+
+        section.innerHTML = `
+          <div style="background: rgba(255,255,255,0.1); padding: 40px; border-radius: 8px;">
+            ${htmlContent}
+          </div>
+        `;
+        slidesContainer.appendChild(section);
+      });
+
+      // Reinitialize Reveal.js after adding slides
+      if (Reveal_Instance) {
+        Reveal_Instance.initialize();
+        Reveal_Instance.sync();
+        Reveal_Instance.slide(0, 0, 0); // Always start from first slide
+      }
+
+      // Populate slide dropdown and show timer
+      populateSlideDropdown();
+      document.getElementById('desktop-timer').style.display = 'block';
+      
+      // Clear custom notes for new slides
+      customNotes = {};
+
+      // Send slide count and initial notes to phone
+      sendSlideCountToPhone();
+      sendSlideNotestoPhone(0);
+    }
+
+    function loadPDFSlides(pdfSlides) {
+      const slidesContainer = document.getElementById('slides-container');
+      slidesContainer.innerHTML = '';
+
+      pdfSlides.forEach((slideData, index) => {
+        const section = document.createElement('section');
+        section.setAttribute('data-notes', slideData.text || `Page ${index + 1}`);
+        section.innerHTML = `
+          <img src="${slideData.imageUrl}" style="max-width: 90vw; max-height: 90vh; width: auto; height: auto;" />
+        `;
+        slidesContainer.appendChild(section);
+      });
+
+      // Reinitialize Reveal.js after adding slides
+      if (Reveal_Instance) {
+        Reveal_Instance.initialize();
+        Reveal_Instance.sync();
+        Reveal_Instance.slide(0, 0, 0); // Always start from first slide
+      }
+
+      // Populate slide dropdown and show timer
+      populateSlideDropdown();
+      document.getElementById('desktop-timer').style.display = 'block';
+      
+      // Clear custom notes for new slides
+      customNotes = {};
+
+      // Send slide count and initial notes to phone
+      sendSlideCountToPhone();
+      sendSlideNotestoPhone(0);
+    }
+
+    function sendSlideNotestoPhone(slideIndex) {
+      // Check custom notes first, then use slide data-notes
+      let notes = customNotes[slideIndex];
+      
+      if (!notes) {
+        const slides = document.querySelectorAll('.reveal .slides section');
+        if (slides[slideIndex]) {
+          notes = slides[slideIndex].getAttribute('data-notes') || 'No notes for this slide';
+        } else {
+          notes = 'No notes for this slide';
+        }
+      }
+
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'notes', content: notes }));
+      }
+    }
+
+    function sendSlideCountToPhone() {
+      const slides = document.querySelectorAll('.reveal .slides section');
+      const total = slides.length;
+      if (total > 0 && dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'slide-count', total }));
+        console.log('[DESKTOP] Sent slide count to phone:', total);
+      }
+    }
+
+    function populateSlideDropdown() {
+      const slides = document.querySelectorAll('.reveal .slides section');
+      const select = document.getElementById('note-slide-select');
+      select.innerHTML = '';
+      
+      slides.forEach((slide, index) => {
+        const option = document.createElement('option');
+        const slideTitle = slide.textContent.split('\n')[0].substring(0, 30) || `Slide ${index + 1}`;
+        option.value = index;
+        option.textContent = `Slide ${index + 1}: ${slideTitle}`;
+        select.appendChild(option);
+      });
+    }
+
+    function updateNoteEditorForSlide() {
+      const select = document.getElementById('note-slide-select');
+      const noteEditor = document.getElementById('note-editor');
+      const slideIndex = parseInt(select.value);
+      
+      if (slideIndex >= 0) {
+        noteEditor.value = customNotes[slideIndex] || '';
+      } else {
+        noteEditor.value = '';
+      }
+    }
+
+    function saveNoteForSlide() {
+      const select = document.getElementById('note-slide-select');
+      const noteEditor = document.getElementById('note-editor');
+      const slideIndex = parseInt(select.value);
+      
+      if (slideIndex >= 0) {
+        customNotes[slideIndex] = noteEditor.value;
+        alert(`Note saved for Slide ${slideIndex + 1}!`);
+      } else {
+        alert('Please select a slide first');
+      }
+    }
+
+    function displayPhoneNote(slideIndex) {
+      const note = phoneNotes[slideIndex] || 'No notes for this slide';
+      document.getElementById('speaker-notes').textContent = note;
+      currentPhoneSlide = slideIndex;
+      updateSlideInfo();
+    }
+
+    function updateSlideInfo() {
+      const total = totalPhoneSlides > 0 ? totalPhoneSlides : '?';
+      document.getElementById('slide-info').textContent = `Slide ${currentPhoneSlide + 1}/${total}`;
+    }
+
+    function updateSlideNavigationButtons() {
+      const prevBtn = document.getElementById('prev-slide-btn');
+      const nextBtn = document.getElementById('next-slide-btn');
+      if (prevBtn) prevBtn.disabled = currentPhoneSlide <= 0;
+      if (nextBtn) nextBtn.disabled = totalPhoneSlides === 0 || currentPhoneSlide >= totalPhoneSlides - 1;
+    }
+
+    // Single source-of-truth status setter — called directly from events, no polling
+    function setConnectionStatus(message, color, isConnected) {
+      const statusDisplay = document.getElementById('connection-status-display');
+      const statusText = document.getElementById('connection-status-text');
+      const sendBtn = document.getElementById('send-notes-btn');
+      const qrModalStatus = document.getElementById('connection-status');
+
+      if (statusDisplay && statusText) {
+        statusText.textContent = message;
+        statusDisplay.style.background = color;
+        statusDisplay.style.display = 'block';
+      }
+
+      if (qrModalStatus) {
+        qrModalStatus.textContent = message;
+        qrModalStatus.style.color = isConnected ? 'green' : '#333';
+      }
+
+      if (sendBtn) {
+        sendBtn.disabled = !isConnected;
+        sendBtn.style.opacity = isConnected ? '1' : '0.5';
+        sendBtn.title = isConnected ? 'Send notes to phone' : 'Phone not connected';
+      }
+
+      console.log('[DESKTOP] Status:', message);
+    }
+
+    function sendAllNotesToPhone() {
+      if (!dataChannel) {
+        console.error('[DESKTOP] No data channel exists');
+        alert('❌ No data channel. Please reload and scan QR code again.');
+        return;
+      }
+      
+      if (dataChannel.readyState !== 'open') {
+        console.error(`[DESKTOP] Data channel state is '${dataChannel.readyState}', not 'open'`);
+        console.error('[DESKTOP] Connection details:', {
+          peerConnectionState: peerConnection?.connectionState,
+          iceConnectionState: peerConnection?.iceConnectionState,
+          dataChannelReady: dataChannelReady
+        });
+        alert(`❌ Phone not ready. Data channel state: ${dataChannel.readyState}\n\nTry:\n1. Reload the phone page\n2. Wait for connection to fully establish\n3. Try again in a few seconds`);
+        return;
+      }
+
+      let allNotesSent = 0;
+      
+      // Send all custom notes using Object.entries for more robust iteration
+      for (const [slideIndex, noteContent] of Object.entries(customNotes)) {
+        if (noteContent && noteContent.trim()) {
+          dataChannel.send(JSON.stringify({ 
+            type: 'slide-notes', 
+            slideIndex: parseInt(slideIndex), 
+            content: noteContent 
+          }));
+          console.log(`Sent note for slide ${slideIndex}: ${noteContent.substring(0, 50)}...`);
+          allNotesSent++;
+        }
+      }
+      
+      if (allNotesSent > 0) {
+        alert(`✅ Sent ${allNotesSent} note(s) to phone!`);
+      } else {
+        alert('⚠️ No notes saved yet. Please:\n1. Select a slide\n2. Write notes\n3. Click "Save Note"\n4. Then send');
+      }
+    }
+
     function setupDataChannel(channel) {
-      channel.onopen = () => console.log("WebRTC Data Channel is OPEN");
+      const deviceType = isMobile() ? '[PHONE]' : '[DESKTOP]';
+      
+      channel.onopen = () => {
+        console.log(deviceType, "WebRTC Data Channel OPENED - Ready State:", channel.readyState);
+        dataChannelReady = true;
+        if (!isMobile()) {
+          setConnectionStatus('✅ Phone Connected — ready to send notes', 'rgba(0, 180, 0, 0.8)', true);
+          console.log('[DESKTOP] Sending initial notes and slide count to phone');
+          sendSlideCountToPhone();
+          sendSlideNotestoPhone(0);
+        }
+      };
+
+      channel.onerror = (error) => {
+        dataChannelReady = false;
+        if (!isMobile()) {
+          setConnectionStatus('❌ Connection error', 'rgba(255, 0, 0, 0.8)', false);
+        }
+        console.error(deviceType, 'Data Channel Error:', error);
+        console.error('  - Channel state:', channel.readyState);
+        console.error('  - RTCPeerConnection state:', peerConnection ? peerConnection.connectionState : 'No peer connection');
+        console.error('  - RTCPeerConnection ICE state:', peerConnection ? peerConnection.iceConnectionState : 'No ICE state');
+      };
+
+      channel.onclose = () => {
+        console.log(deviceType, 'Data Channel CLOSED');
+        dataChannelReady = false;
+        if (!isMobile()) {
+          setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
+        }
+      };
+
       channel.onmessage = (event) => {
-        console.log("Received message:", event.data);
-        // Logic to change slides on desktop goes here!
-        if (event.data === 'next') console.log("Moving to next slide...");
+        const message = event.data;
+        console.log(deviceType, "Received message:", message);
+        
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(message);
+        } catch (e) {
+          console.log(deviceType, "Message is not JSON:", message);
+          return;
+        }
+
+        if (parsedMessage.type === 'notes') {
+          if (!isMobile()) {
+            console.log("[Desktop] Ignoring notes message");
+          } else {
+            console.log('[PHONE] Displaying speaker notes');
+            document.getElementById('speaker-notes').textContent = parsedMessage.content;
+          }
+        } else if (parsedMessage.type === 'slide-notes') {
+          if (isMobile()) {
+            console.log(`[Phone] Received notes for slide ${parsedMessage.slideIndex}: ${parsedMessage.content.substring(0, 50)}...`);
+            // Store notes for this slide
+            phoneNotes[parsedMessage.slideIndex] = parsedMessage.content;
+            // If this is the first note received for current slide, display it
+            if (parsedMessage.slideIndex === currentPhoneSlide) {
+              displayPhoneNote(currentPhoneSlide);
+            }
+            updateSlideNavigationButtons();
+          }
+        } else if (parsedMessage.type === 'slide-count') {
+          if (isMobile()) {
+            console.log(`[Phone] Received total slide count: ${parsedMessage.total}`);
+            totalPhoneSlides = parsedMessage.total;
+            updateSlideInfo();
+            updateSlideNavigationButtons();
+          }
+        } else if (parsedMessage.type === 'next') {
+          if (!isMobile()) {
+            console.log("[Desktop] Moving to next slide...");
+          }
+        } else if (parsedMessage.type === 'prev') {
+          if (!isMobile()) {
+            console.log("[Desktop] Moving to previous slide...");
+          }
+        }
       };
     }
 
     // --- CORE LOGIC ---
     const init = async () => {
-      if (!isMobile()) {
+      const isMobileDevice = isMobile();
+      const forceMode = localStorage.getItem('forceMode'); // Check for override
+      
+      console.log('=== Device Detection ===');
+      console.log('User Agent:', navigator.userAgent);
+      console.log('Auto-detected as:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
+      console.log('Force mode override:', forceMode || 'none');
+      
+      // Use override if set, otherwise use auto-detection
+      const shouldBePhone = forceMode === 'phone' ? true : (forceMode === 'desktop' ? false : isMobileDevice);
+      
+      console.log('Final mode:', shouldBePhone ? 'MOBILE' : 'DESKTOP');
+      
+      if (!shouldBePhone) {
+        console.log('Setting up DESKTOP mode...');
         setupDesktop();
       } else {
+        console.log('Setting up MOBILE mode...');
         setupMobile();
       }
     };
 
+    // Add console commands for testing
+    window.forcePhone = () => {
+      localStorage.setItem('forceMode', 'phone');
+      console.log('Force mode set to PHONE. Reload page to apply.');
+      alert('Force mode set to PHONE. Reloading page...');
+      location.reload();
+    };
+
+    window.forceDesktop = () => {
+      localStorage.setItem('forceMode', 'desktop');
+      console.log('Force mode set to DESKTOP. Reload page to apply.');
+      alert('Force mode set to DESKTOP. Reloading page...');
+      location.reload();
+    };
+
+    window.clearForce = () => {
+      localStorage.removeItem('forceMode');
+      console.log('Force mode cleared. Reload page to apply.');
+      alert('Force mode cleared. Reloading page...');
+      location.reload();
+    };
+
+    console.log('💡 For testing, use these commands in console:');
+    console.log('  forcePhone()   - Force phone mode');
+    console.log('  forceDesktop() - Force desktop mode');
+    console.log('  clearForce()   - Clear override and auto-detect');
+
     async function setupDesktop() {
-      // 1. Get URL and Render QR
+      // Get URL and initial QR (don't show yet)
       const response = await fetch('/config');
       const data = await response.json();
-      renderQRCode(data.url);
+      console.log('[DESKTOP] Server URL:', data.url);
+      console.log('[DESKTOP] Socket ID:', socket.id);
 
-      // 2. Prepare WebRTC
+      // Setup toggle overlay button
+      document.getElementById('toggle-overlay-btn').addEventListener('click', () => {
+        const overlay = document.getElementById('upload-overlay');
+        overlay.classList.toggle('hidden');
+      });
+
+      // Setup QR button listener
+      document.getElementById('show-qr-btn').addEventListener('click', () => {
+        renderQRCode(data.url);
+        document.getElementById('qr-overlay').classList.remove('hidden');
+        console.log('[DESKTOP] QR code displayed');
+      });
+
+      document.getElementById('close-qr-btn').addEventListener('click', () => {
+        document.getElementById('qr-overlay').classList.add('hidden');
+      });
+
+      // Setup slide loading
+      document.getElementById('load-slides-btn').addEventListener('click', () => {
+        const markdown = document.getElementById('markdown-input').value;
+        if (markdown.trim()) {
+          loadSlides(markdown);
+        }
+      });
+
+      // Setup file upload
+      document.getElementById('upload-file-btn').addEventListener('click', () => {
+        const fileInput = document.getElementById('file-upload');
+        if (fileInput.files.length === 0) {
+          alert('Please select a file first');
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+          try {
+            if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+              // Handle PDF - render pages as images
+              const pdfSlides = await extractTextFromPDF(e.target.result);
+              loadPDFSlides(pdfSlides);
+              console.log('PDF loaded with', pdfSlides.length, 'pages');
+            } else {
+              // Handle text files
+              const content = e.target.result;
+              document.getElementById('markdown-input').value = content;
+              loadSlides(content);
+              console.log('Slides loaded from file:', file.name);
+            }
+          } catch (error) {
+            alert('Error processing file: ' + error.message);
+          }
+        };
+
+        reader.onerror = () => {
+          alert('Error reading file');
+        };
+
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.readAsText(file);
+        }
+      });
+
+      // Setup note editor controls
+      document.getElementById('note-slide-select').addEventListener('change', updateNoteEditorForSlide);
+      document.getElementById('save-note-btn').addEventListener('click', saveNoteForSlide);
+      document.getElementById('send-notes-btn').addEventListener('click', sendAllNotesToPhone);
+
+      // Initialize Reveal.js
+      Reveal_Instance = new Reveal({
+        hash: true,
+        width: '100%',
+        height: '100%',
+        margin: 0.1,
+        minScale: 0.2,
+        maxScale: 2.0,
+        plugins: [ RevealMarkdown, RevealNotes ]
+      });
+
+      Reveal_Instance.initialize().then(() => {
+        // Listen for slide changes
+        Reveal_Instance.on('slidechanged', (event) => {
+          const slideIndex = Reveal_Instance.getState().indexh;
+          sendSlideNotestoPhone(slideIndex);
+        });
+      });
+
+      // Prepare WebRTC
       peerConnection = new RTCPeerConnection(config);
-      dataChannel = peerConnection.createDataChannel("controls");
-      setupDataChannel(dataChannel);
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('candidate', event.candidate);
+      console.log('[DESKTOP] RTCPeerConnection created');
+      
+      // Add peer connection state monitors (logging only)
+      peerConnection.onconnectionstatechange = () => {
+        console.log('[DESKTOP] Connection State Changed:', peerConnection.connectionState);
       };
+      
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('[DESKTOP] ICE Connection State Changed:', peerConnection.iceConnectionState);
+      };
+      
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('[DESKTOP] ICE Gathering State Changed:', peerConnection.iceGatheringState);
+      };
+      
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('[DESKTOP] Sending ICE candidate');
+          socket.emit('candidate', event.candidate);
+        }
+      };
+      
+      dataChannel = peerConnection.createDataChannel("controls");
+      console.log('[DESKTOP] Data channel created, state:', dataChannel.readyState);
+      setupDataChannel(dataChannel);
+      setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
 
       const offer = await peerConnection.createOffer();
+      console.log('[DESKTOP] Offer created');
+      
       await peerConnection.setLocalDescription(offer);
-      socket.emit('offer', offer);
+      console.log('[DESKTOP] Local description set');
+
+      // Guard: only send the offer once, even if multiple phone events fire
+      let offerSent = false;
+      const sendOffer = (reason) => {
+        if (offerSent) {
+          console.log('[DESKTOP] Offer already sent, ignoring duplicate trigger:', reason);
+          return;
+        }
+        offerSent = true;
+        console.log('[DESKTOP] Sending offer to phone (trigger:', reason, ')');
+        setConnectionStatus('⏳ Phone on page, establishing connection...', 'rgba(255, 165, 0, 0.8)', false);
+        socket.emit('offer', offer);
+      };
+
+      // Socket.IO: phone-joined fires the INSTANT phone connects (server-driven)
+      socket.on('phone-joined', () => sendOffer('phone-joined'));
+
+      // phone-ready is a client-side fallback (500ms after phone-joined)
+      socket.on('phone-ready', () => sendOffer('phone-ready'));
+
+      // Socket.IO: phone-left fires the INSTANT phone disconnects
+      socket.on('phone-left', () => {
+        console.log('[DESKTOP] Phone left!');
+        dataChannelReady = false;
+        offerSent = false; // Allow re-offer if phone reconnects
+        setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
+      });
 
       socket.on('answer', async (answer) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        try {
+          if (peerConnection.signalingState !== 'have-local-offer') {
+            console.warn('[DESKTOP] Ignoring duplicate answer — signalingState:', peerConnection.signalingState);
+            return;
+          }
+          console.log('[DESKTOP] Received answer from phone');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log('[DESKTOP] Remote description set - WebRTC handshake complete');
+        } catch (error) {
+          console.error('[DESKTOP] Error handling answer:', error);
+        }
       });
     }
 
     async function setupMobile() {
+      console.log('[PHONE] Mobile setup starting...');
+      console.log('[PHONE] Socket ID:', socket.id);
+      
       document.getElementById('desktop').classList.add('hidden');
       document.getElementById('mobile').classList.remove('hidden');
 
+      // Allow the page to scroll naturally on mobile
+      document.body.style.overflow = 'auto';
+
+      // Remove Reveal.js container entirely — not needed on mobile
+      const revealContainer = document.querySelector('.reveal-container');
+      if (revealContainer) revealContainer.remove();
+
+      // Hide the desktop-only "Start the process" button
+      const toggleBtn = document.getElementById('toggle-overlay-btn');
+      if (toggleBtn) toggleBtn.style.display = 'none';
+
+      console.log('[PHONE] UI switched to mobile mode');
+
+      // Setup timer controls
+      document.getElementById('timer-start').addEventListener('click', startTimer);
+      document.getElementById('timer-pause').addEventListener('click', pauseTimer);
+      document.getElementById('timer-reset').addEventListener('click', resetTimer);
+
+      // Setup slide navigation controls
+      const prevBtn = document.getElementById('prev-slide-btn');
+      const nextBtn = document.getElementById('next-slide-btn');
+      
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          if (currentPhoneSlide > 0) {
+            displayPhoneNote(currentPhoneSlide - 1);
+            updateSlideNavigationButtons();
+          }
+        });
+      }
+      
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          if (totalPhoneSlides > 0 && currentPhoneSlide < totalPhoneSlides - 1) {
+            displayPhoneNote(currentPhoneSlide + 1);
+            updateSlideNavigationButtons();
+          }
+        });
+      }
+
       peerConnection = new RTCPeerConnection(config);
+      console.log('[PHONE] RTCPeerConnection created');
+      
+      // Add peer connection state monitors
+      peerConnection.onconnectionstatechange = () => {
+        console.log('[PHONE] Connection State Changed:', peerConnection.connectionState);
+      };
+      
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('[PHONE] ICE Connection State Changed:', peerConnection.iceConnectionState);
+      };
+      
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('[PHONE] ICE Gathering State Changed:', peerConnection.iceGatheringState);
+      };
 
       peerConnection.ondatachannel = (event) => {
+        console.log('[PHONE] Data channel received:', event.channel.label, '- State:', event.channel.readyState);
         dataChannel = event.channel;
         setupDataChannel(dataChannel);
       };
 
       peerConnection.onicecandidate = (event) => {
-        if (event.candidate) socket.emit('candidate', event.candidate);
+        if (event.candidate) {
+          console.log('[PHONE] Sending ICE candidate');
+          socket.emit('candidate', event.candidate);
+        }
       };
 
+      peerConnection.onerror = (error) => {
+        console.error('[PHONE] RTCPeerConnection error:', error);
+      };
+
+      let processingOffer = false;
       socket.on('offer', async (offer) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', answer);
+        try {
+          // Ignore offers that arrive while already processing one
+          if (processingOffer || peerConnection.signalingState !== 'stable') {
+            console.warn('[PHONE] Ignoring duplicate offer — processingOffer:', processingOffer, 'signalingState:', peerConnection.signalingState);
+            return;
+          }
+          processingOffer = true;
+          console.log('[PHONE] Received offer from desktop');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+          console.log('[PHONE] Remote description set');
+          
+          const answer = await peerConnection.createAnswer();
+          console.log('[PHONE] Answer created');
+          
+          await peerConnection.setLocalDescription(answer);
+          console.log('[PHONE] Local description set');
+          
+          socket.emit('answer', answer);
+          console.log('[PHONE] Answer sent to desktop');
+        } catch (error) {
+          console.error('[PHONE] Error handling offer:', error);
+        } finally {
+          processingOffer = false;
+        }
       });
+
+      console.log('[PHONE] Waiting for offer from desktop...');
+      
+      // Signal to desktop that phone is ready to receive offer
+      setTimeout(() => {
+        console.log('[PHONE] Emitting phone-ready signal to desktop');
+        socket.emit('phone-ready');
+      }, 500);
     }
 
     socket.on('candidate', async (candidate) => {
       try {
+        console.log('Received ICE candidate');
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) { console.error("Error adding ice candidate", e); }
+        console.log('ICE candidate added successfully');
+      } catch (e) { 
+        console.error("Error adding ice candidate", e); 
+      }
     });
 
-    init();
+    // init() will be called automatically when socket.io connects (see socket.on('connect') above)
+  </script>
+
+  <!-- Add markdown-it library for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Add PDF.js for PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
 </body>
 
