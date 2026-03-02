@@ -211,7 +211,7 @@ app.get('/config', (req, res) => {
 **Fix (AI):** Added `totalPhoneSlides` variable; desktop sends `{ type: 'slide-count', total: N }` over the data channel when slides load.  
 **I wrote:** The `slide-count` message handler on the phone side, after understanding the pattern from the existing `slide-notes` handler:
 ```javascript
-} else if (parsedMessage.type === 'slide-count') {
+ else if (parsedMessage.type === 'slide-count') {
   if (isMobile()) {
     totalPhoneSlides = parsedMessage.total;
     updateSlideInfo();
@@ -273,14 +273,14 @@ socket.on('phone-left', () => {
 ```
 
 **To-fix**
-- **FIX** the notes showing the text from the slides instead of notes the user inputed themselves!!!!
+- **FIX** the notes showing the text from the slides instead of notes the user inputed themselves!!!! - ✅
 
 **UI-improvements** (make a branch)
-- "Save note" button and "Send Notes to Phone" button should give visual feedback to the user instead of an alert -> that's annoying, slow and frustrating
-- the phone view should show when there is no presentation (now it says "No notes for this slide + Slide 1/1 but there are no slides")
-- on Desktop you should be able to open and close the .upload-overlay so it doesn't cover the slides -> and it should remember the typed/input information even when closed
-- fix **horizontal overflow** on **.upload-overlay**
-- create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide 
+- "Save note" button and "Send Notes to Phone" button should give visual feedback to the user instead of an alert -> that's annoying, slow and frustrating - ✅
+- the phone view should show when there is no presentation (now it says "No notes for this slide + Slide 1/1 but there are no slides") - ✅
+- on Desktop you should be able to open and close the .upload-overlay so it doesn't cover the slides -> and it should remember the typed/input information even when closed - ✅
+- fix **horizontal overflow** on **.upload-overlay** - ✅
+- create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide - ✅
 - when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset
 - create a better/prettier phone UI (no purple)
 
