@@ -12,6 +12,46 @@ A WebRTC application where a **desktop** acts as the presentation screen (runnin
 
 ### Week 1 — Foundations: Socket.IO + QR Code (2026-02-24)
 
+At first I started by brainstorming with AI different possible concept ideas for the project. These were the ones I liked the most:
+
+## 1. “Do Not Drop It”
+**Phone:** motion controls
+**Desktop:** fragile object (egg, glass, soul)
+
+## Concept:
+Sudden movement => crack
+Smooth movement => safe
+
+## 2. Retro Arcade "Brick Breaker”
+
+## Concept: 
+A classic breakout game on the desktop where the phone is the "paddle".
+## Interaction: 
+Slide your finger on the phone screen to move the paddle, or tilt the phone left/right.
+
+## 3. Asymmetric "Bomb Defuser"
+
+## Concept: 
+The desktop shows a complex bomb with wires and timers. The phone shows the "Instruction Manual" or a different set of tools.
+## Interaction: 
+The phone user must "cut" specific wires by swiping, which updates the desktop state in real-time.
+
+## 4. Remote Slideshow Presentation controller (through your phone)
+
+## Concept: 
+A professional tool for PowerPoint-style slides/pdfs.
+## Interaction: 
+Swipe left/right on the phone to change slides. The phone displays the "Speaker Notes" and a timer, which aren't visible on the desktop. Add timers, haptic sounds, tilt the phone to change slides, add laser point, etc.
+
+## 5. "Punch-Out" Fitness Game
+
+## Concept: 
+A boxing game where the desktop shows the opponent.
+## Interaction: 
+Use a "flicking" motion with the phone to throw a punch. The desktop detects the $g-force$ to determine the power of the hit.
+
+**My final choice** After consult I chose idea number 4 -> the remote slideshow presentation controller. I chose it because it's straight-forward, practical and covers the project requirements. 
+
 **Goal:** Get a server running, detect which device is viewing the page, and show a QR code on desktop so the phone can connect easily.
 
 **What was built:**
@@ -281,9 +321,107 @@ socket.on('phone-left', () => {
 - on Desktop you should be able to open and close the .upload-overlay so it doesn't cover the slides -> and it should remember the typed/input information even when closed - ✅
 - fix **horizontal overflow** on **.upload-overlay** - ✅
 - create better UX/UI for phone layout for slides -> when you click on the buttons, it's a bit hard and sometimes it zooms instead of going to the next slide - ✅
-- when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset
+- when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset - ✅
 - create a better/prettier phone UI (no purple) - ?
 
-- **For week2** -> introduce the slides changing by tilting the phone
+---
+
+### Phase 8 — Bug Fix: Notes showing slide content instead of user input
+
+**Bug I reported:** On the phone, the speaker notes panel was displaying the actual text from the slide instead of the custom notes I typed on desktop.
+
+**Root cause:** `sendSlideNotestoPhone()` had a fallback that read `data-notes` when no custom note existed. Because `parseMarkdownSlides()` set `data-notes` to the slide text, the phone always received slide text.
+
+**Fix (AI):** Removed the `data-notes` fallback entirely — custom notes now only come from `customNotes[slideIndex]`.
+
+```javascript
+// Before (broken)
+const notes = customNotes[slideIndex]
+  || document.querySelectorAll('.reveal section')[slideIndex]?.getAttribute('data-notes')
+  || 'No notes for this slide';
+
+// After (fixed)
+const notes = customNotes[slideIndex] || 'No notes for this slide';
+```
+
+**I diagnosed:** Typed "Hello world" into the notes editor, sent it to the phone, and saw raw slide markdown appear instead. Confirmed it was a fallback problem, not a send/receive issue.
+
+---
+
+### Phase 9 — UI Improvements (branch: feature/view-UI-optimize)
+
+#### 9a — Button feedback instead of alerts
+
+**Problem I raised:** Save and Send buttons used `alert()` — blocking and jarring on mobile, which is frustrating for the user and not very UI-friendly.
+
+**AI wrote:** The `showButtonFeedback()` utility function.
+
+**I wrote:** All the feedback label strings (`'Note Saved ✅'`, `'Select a slide first ⚠️'`, `'Sent N note(s) ✅'`) and manually replaced every `alert()` call by searching through the file.
+
+#### 9b — Empty state on phone when no slides loaded
+
+**I wrote:** The early-return guard at the top of `displayPhoneNote()`:
+
+```javascript
+if (totalPhoneSlides === 0) {
+  document.getElementById('speaker-notes').textContent = 'No presentation uploaded';
+  document.getElementById('slide-info').textContent = '';
+  return;
+}
+```
+
+#### 9c — Upload overlay toggle
+
+**Problem I noticed :** The overlay had no close button and permanently covered the slides.
+
+**I wrote:** Close button HTML, event handlers, and the CSS slide-out transition using `transform + pointer-events: none`.
+
+**I suggested:** Using `transform` instead of `display: none` to preserve textarea content when hidden. Added `pointer-events: none` after looking it up on MDN.
+
+#### 9d — Horizontal overflow fix
+
+**I wrote:** `overflow-x: hidden` on `.upload-overlay` and `box-sizing: border-box` on inner inputs and buttons after noticing the panel was wider than the screen on small phones.
+
+#### 9e — Double-tap Zoom prevention on the slide prev/next buttons on mobile
+
+**I wrote:** Added these two properties to button CSS after finding them on MDN:
+
+```css
+touch-action: manipulation;
+user-select: none;
+```
+
+**AI explained** that `touch-action: manipulation` disables double-tap zoom while preserving pinch-to-zoom.
+
+---
+
+### Phase 10 — Timer sync: Phone controls Desktop (branch: feature/timer)
+
+**Goal:** Tapping Start/Pause/Resume/Reset on the phone mirrors the timer on desktop in real time.
+
+**AI wrote:** `startTimer()`, `pauseTimer()`, `resumeTimer()`, `resetTimer()` with full `setInterval`/`clearInterval` management, the `timer-control` desktop message handler, and `updateTimerButtonStates()` show/hide logic.
+
+**I wrote:**
+- `sendTimerControlToDesktop()` — one-liner wrapper sending the action over the data channel
+- `formatTime()` — zero-pads minutes and seconds into `MM:SS`
+- Timer CSS — chose 48px Courier New, text-shadow, and `#ffd700` gold for `.timer-btn` to match the phone header colour
+- Added `style="display: none;"` on the Pause and Resume buttons in HTML so only Start is visible on load
+
+---
+
+### Phase 11 — Code organisation: separate CSS and JS Files
+
+**Context:** `index.html` had grown to 1474 lines with inline `<style>` and `<script>` blocks. Splitting into separate files improves maintainability and enables proper syntax highlighting.
+
+**I did:**
+- Extracted all `<style>` content into `style.css` (303 lines) and all `<script>` content into `script.js`, then updated `index.html` to reference both.
+- Checked the external library load order was preserved (Reveal.js CSS, QR library, Reveal.js JS, Socket.IO, marked, PDF.js — then `script.js` last so all globals exist when app code runs)
+
+**AI did:**
+- Reorganised CSS comment headings into logical groups: base → mobile presenter → timer → upload overlay → Reveal.js container → QR modal
+
+---
+
+- **For week3** -> introduce the slides changing by tilting the phone
 - introduce a feature where the user can type in how long the presentation should be and at what point (1 minute left? 30 seconds left?) should the phone buzz to remind the speaker they should be finishing the presentation soon. (branch **feature/timer**)
 - add instructions on how to use the phone tilt to the user
