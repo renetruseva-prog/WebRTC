@@ -7,6 +7,7 @@ import {
   sendSlideNotesToPhone, sendSlideCountToPhone,
   updateNoteEditorForSlide, saveAndSendCurrentNote
 } from './slides.js';
+import { setupGyroscopeControl } from './gyroscope.js';
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
@@ -164,8 +165,9 @@ function _handleMessage(msg) {
     case 'slide-notes':
       if (isMobile()) {
         state.phoneNotes[msg.slideIndex] = msg.content;
-        if (msg.slideIndex === state.currentPhoneSlide) displayPhoneNote(state.currentPhoneSlide);
-        if (msg.type === 'slide-notes') updateSlideNavigationButtons();
+        // Always follow the desktop's current slide so gyroscope tracking stays in sync
+        displayPhoneNote(msg.slideIndex);
+        updateSlideNavigationButtons();
       }
       break;
 
@@ -189,6 +191,17 @@ function _handleMessage(msg) {
       if (!isMobile()) {
         const actions = { start: startTimer, pause: pauseTimer, resume: resumeTimer, reset: resetTimer };
         if (actions[msg.action]) actions[msg.action]();
+      }
+      break;
+
+    case 'gyroscope-slide':
+      if (!isMobile()) {
+        if (msg.direction === 'next') {
+          state.Reveal_Instance.next();
+        } else if (msg.direction === 'prev') {
+          state.Reveal_Instance.prev();
+        }
+        console.log('[DESKTOP] Slide changed via gyroscope:', msg.direction);
       }
       break;
   }
@@ -415,6 +428,9 @@ export async function setupMobile() {
   state.peerConnection.onicecandidate = onIceCandidatePhone;
 
   state.socket.on('offer', onOffer);
+
+  // Setup gyroscope control for slide navigation
+  setupGyroscopeControl();
 
   // Signal desktop that phone is ready (slight delay to ensure socket is registered)
   setTimeout(() => {
