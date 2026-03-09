@@ -49,7 +49,7 @@
       </div>
       <!-- Desktop Timer Display -->
       <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
-        <span id="desktop-timer-display">00:00</span>
+        <span id="desktop-timer-display">Timer: 00:00</span>
       </div>
       <!-- Connection Status Display -->
       <div id="connection-status-display" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none;">
@@ -74,7 +74,27 @@
   <div id="mobile" class="hidden">
     <h1>🎤 Presenter View</h1>
     <div id="presentation-name" style="text-align: center; font-size: 14px; opacity: 0.8; margin-bottom: 10px;">No presentation uploaded</div>
-    
+
+    <!-- Gyroscope Permission Button (iOS 13+) -->
+    <button id="request-permission-btn" style="display: none; width: 90%; margin: 10px auto; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">
+      📱 Enable Gyroscope Control
+    </button>
+
+    <!-- Gyroscope tilt indicator -->
+    <div id="gyro-indicator" style="margin: 8px 16px; padding: 8px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 13px; font-family: monospace; display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Tilt (γ):</span>
+        <span id="gyro-gamma">0°</span>
+        <span id="gyro-status" style="font-size: 11px; opacity: 0.7;">neutral</span>
+      </div>
+      <div style="margin-top: 6px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; position: relative;">
+        <div id="gyro-bar" style="position: absolute; top: 0; height: 100%; width: 4px; background: #4CAF50; border-radius: 2px; left: 50%; transform: translateX(-50%); transition: left 0.05s;"></div>
+        <div style="position: absolute; left: calc(50% - 20%); top: -2px; width: 2px; height: 10px; background: rgba(255,100,100,0.6);"></div>
+        <div style="position: absolute; left: calc(50% + 20%); top: -2px; width: 2px; height: 10px; background: rgba(255,100,100,0.6);"></div>
+      </div>
+      <div id="gyro-last-action" style="margin-top: 4px; font-size: 11px; opacity: 0.8; text-align: center;">&nbsp;</div>
+    </div>
+
     <div class="presenter-container">
       <!-- Speaker Notes Section -->
       <div class="notes-area">
@@ -92,7 +112,7 @@
       <!-- Timer Section -->
       <div class="timer-container">
         <div class="timer-label">⏱️ Presentation Timer</div>
-        <div class="timer-display" id="timer-display">00:00</div>
+        <div class="timer-display" id="timer-display">Timer: 00:00</div>
         <div class="timer-controls">
           <button class="timer-btn" id="timer-start">Start</button>
           <button class="timer-btn" id="timer-pause" style="display: none;">Pause</button>

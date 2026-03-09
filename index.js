@@ -1,12 +1,19 @@
 const express = require('express');
 const app = express();
-const http = require('http');
-const server = http.createServer(app);
+const https = require('https');
+const fs = require('fs');
 const { Server } = require("socket.io");
-const io = new Server(server);
 const { networkInterfaces } = require('os'); 
 
 const port = 3000;
+
+const sslOptions = {
+  key:  fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem'),
+};
+
+const server = https.createServer(sslOptions, app);
+const io = new Server(server);
 
 const nets = networkInterfaces();
 let localIp = '127.0.0.1';
@@ -21,7 +28,7 @@ for (const name of Object.keys(nets)) {
 app.use(express.static('public'));
 
 app.get('/config', (req, res) => {
-  res.json({ url: `http://${localIp}:${port}` });
+  res.json({ url: `https://${localIp}:${port}` });
 });
 
 const phones = new Set();
@@ -56,6 +63,6 @@ io.on('connection', (socket) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Server running at http://${localIp}:${port}`);
+  console.log(`Server running at https://${localIp}:${port}`);
 });
 

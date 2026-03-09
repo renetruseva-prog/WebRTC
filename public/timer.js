@@ -7,7 +7,7 @@ import { isMobile, formatTime } from './utils.js';
 export function updateTimerDisplay() {
   const timeStr = formatTime(state.timerState.elapsedSeconds);
   const timerDisplay = document.getElementById('timer-display');
-  if (timerDisplay) timerDisplay.textContent = timeStr;
+  if (timerDisplay) timerDisplay.textContent = 'Timer: ' + timeStr;
   // Mirror the time on the desktop overlay as well
   const desktopTimer = document.getElementById('desktop-timer-display');
   if (desktopTimer) desktopTimer.textContent = timeStr;

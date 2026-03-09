@@ -7,6 +7,7 @@ import {
   sendSlideNotesToPhone, sendSlideCountToPhone,
   updateNoteEditorForSlide, saveAndSendCurrentNote
 } from './slides.js';
+import { setupGyroscopeControl } from './gyroscope.js';
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
@@ -163,9 +164,21 @@ function _handleMessage(msg) {
     case 'notes':
     case 'slide-notes':
       if (isMobile()) {
+        // Store silently — never change which slide the phone is viewing
         state.phoneNotes[msg.slideIndex] = msg.content;
-        if (msg.slideIndex === state.currentPhoneSlide) displayPhoneNote(state.currentPhoneSlide);
-        if (msg.type === 'slide-notes') updateSlideNavigationButtons();
+        // Only refresh display if this note is for the slide already on screen
+        if (msg.slideIndex === state.currentPhoneSlide) {
+          displayPhoneNote(state.currentPhoneSlide);
+        }
+        updateSlideNavigationButtons();
+      }
+      break;
+
+    case 'slide-change':
+      if (isMobile()) {
+        // Desktop moved to a new slide — sync phone position
+        displayPhoneNote(msg.slideIndex);
+        updateSlideNavigationButtons();
       }
       break;
 
@@ -189,6 +202,17 @@ function _handleMessage(msg) {
       if (!isMobile()) {
         const actions = { start: startTimer, pause: pauseTimer, resume: resumeTimer, reset: resetTimer };
         if (actions[msg.action]) actions[msg.action]();
+      }
+      break;
+
+    case 'gyroscope-slide':
+      if (!isMobile()) {
+        if (msg.direction === 'next') {
+          state.Reveal_Instance.next();
+        } else if (msg.direction === 'prev') {
+          state.Reveal_Instance.prev();
+        }
+        console.log('[DESKTOP] Slide changed via gyroscope:', msg.direction);
       }
       break;
   }
@@ -248,6 +272,11 @@ export async function setupDesktop() {
   function onSlideChanged() {
     const slideIndex = state.Reveal_Instance.getState().indexh;
     sendSlideNotesToPhone(slideIndex);
+    // Separate message so the phone can sync its current slide position
+    // without getting confused by manual note sends for other slides
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'slide-change', slideIndex }));
+    }
   }
   function onPhoneLeft() {
     console.log('[DESKTOP] Phone left!');
@@ -352,15 +381,21 @@ export async function setupMobile() {
 
   // ── Event handlers ─────────────────────────────────────────────────────────
   function onPrevSlide() {
-    if (state.currentPhoneSlide > 0) {
-      displayPhoneNote(state.currentPhoneSlide - 1);
-      updateSlideNavigationButtons();
+    // Send to desktop to change slide there; it will send back 'slide-change'
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'gyroscope-slide', direction: 'prev' }));
+      console.log('[PHONE] Prev button pressed, command sent to desktop');
+    } else {
+      console.warn('[PHONE] Data channel not ready for prev slide');
     }
   }
   function onNextSlide() {
-    if (state.totalPhoneSlides > 0 && state.currentPhoneSlide < state.totalPhoneSlides - 1) {
-      displayPhoneNote(state.currentPhoneSlide + 1);
-      updateSlideNavigationButtons();
+    // Send to desktop to change slide there; it will send back 'slide-change'
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'gyroscope-slide', direction: 'next' }));
+      console.log('[PHONE] Next button pressed, command sent to desktop');
+    } else {
+      console.warn('[PHONE] Data channel not ready for next slide');
     }
   }
   async function onOffer(offer) {
@@ -415,6 +450,9 @@ export async function setupMobile() {
   state.peerConnection.onicecandidate = onIceCandidatePhone;
 
   state.socket.on('offer', onOffer);
+
+  // Setup gyroscope control for slide navigation
+  setupGyroscopeControl();
 
   // Signal desktop that phone is ready (slight delay to ensure socket is registered)
   setTimeout(() => {
