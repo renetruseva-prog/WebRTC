@@ -103,8 +103,6 @@ app.get('/config', (req, res) => {
 
 ---
 
-### Week 2 — Signaling: WebRTC Handshake (2026-02-24)
-
 **Goal:** Implement the WebRTC offer/answer/ICE candidate exchange using Socket.IO as the signaling channel.
 
 **What was built:**
@@ -324,6 +322,12 @@ socket.on('phone-left', () => {
 - when the timer starts on the phone, it should start on the desktop too -> and same with pause and reset - ✅
 - create a better/prettier phone UI (no purple) - ?
 
+- **Planning for Week 2** 
+- phone displays speaker notes
+- phone displays presentation timer (start / pause)
+- work on UI for the desktop screen
+
+
 ---
 
 ### Week 2 — Bug Fixes, UI Polish & Timer Sync (2026-03-02)
@@ -424,6 +428,146 @@ user-select: none;
 
 ---
 
-- **For week3** -> introduce the slides changing by tilting the phone
+- **Planning for Week 3** 
+- introduce the slides changing by tilting the phone
 - introduce a feature where the user can type in how long the presentation should be and at what point (1 minute left? 30 seconds left?) should the phone buzz to remind the speaker they should be finishing the presentation soon. (branch **feature/timer**)
 - add instructions on how to use the phone tilt to the user
+- feature laser pointer where the finger moves on phone screen and a red dot/line moves on the desktop slides in real time as a highlight
+
+
+### Week 3 — Refactoring & UI Fixes (branch: `feature/fix-issues-week2`)
+
+**Context:** After splitting CSS and JS into external files (Phase 11), the single `script.js` had grown to nearly 1000 lines and was becoming hard to review. The goal of this branch was to clean it up structurally and fix confusing UI patterns in the upload overlay.
+
+---
+
+#### Phase 12 — Separate HTML for Desktop and Phone
+
+**Problem:** Both devices shared one `index.html`. The desktop received unused phone markup and vice versa, which made the layout harder to reason about.
+
+**What was done:**
+- Created `index-desktop.html` — desktop-only markup (Reveal.js container, upload overlay, connection status, QR modal)
+- Created `index-phone.html` — phone-only markup (timer, speaker notes, slide nav buttons)
+- `index.html` kept as legacy fallback; server still serves it via `express.static`
+
+The two files load the same `script.js` entry point; the JS detects the device and runs only the relevant setup path.
+
+---
+
+#### Phase 13 — Split `script.js` into ES Modules
+
+**Problem:** `script.js` mixed state management, utilities, timer logic, slide loading, and WebRTC setup in one file — making it hard to navigate and review.
+
+**What AI did:** Split the different logicall functionalities into six separate files with a clear dependency chain:
+
+| File | Responsibility |
+|------|---------------|
+| `state.js` | Single shared mutable state object + WebRTC config |
+| `utils.js` | Pure helpers: `isMobile()`, `formatTime()`, `showButtonFeedback()` |
+| `timer.js` | Stopwatch: start / pause / resume / reset |
+| `slides.js` | PDF/Markdown parsing, Reveal.js loading, notes editor, data channel sends |
+| `webrtc.js` | RTCPeerConnection, DataChannel, `setupDesktop()`, `setupMobile()`, QR render |
+| `script.js` | Entry point only — Socket.IO init, device detection, `init()` call |
+
+All three HTML files updated to `<script type="module" src="script.js">`.
+
+**Dependency chain (no circular imports):**
+```
+state.js ← utils.js ← timer.js ← slides.js ← webrtc.js ← script.js
+```
+
+**I wrote:**
+- The breakdown decision — I specified which concerns belonged in which file before the AI restructured anything
+- Verified that `io()` (a CDN global) cannot be imported as an ES module, so `script.js` calls it directly and assigns the result to `state.socket`
+
+---
+
+#### Phase 14 — Named Event Handlers
+
+**Problem:** Functions like `setupDesktop()` contained dozens of anonymous arrow callbacks inline:
+
+```javascript
+// Before — hard to skim
+document.getElementById('toggle-overlay-btn').addEventListener('click', () => {
+  overlay.classList.toggle('hidden');
+});
+```
+
+**What I did:** Every inline callback in `webrtc.js` extracted into a named function above the `addListeners` call:
+
+```javascript
+// After — handler name is self-documenting
+function toggleUploadOverlay() {
+  overlay.classList.toggle('hidden');
+}
+// ...
+document.getElementById('toggle-overlay-btn').addEventListener('click', toggleUploadOverlay);
+```
+
+Named handlers extracted: `toggleUploadOverlay`, `closeUploadOverlay`, `openQROverlay`, `closeQROverlay`, `onUploadFileClick`, `onSlideChanged`, `onPhoneLeft`, `onAnswer`, `onPrevSlide`, `onNextSlide`, `onOffer`.
+
+---
+
+#### Phase 15 — DRY Refactor Across All Files
+
+**Problem:** After extracting named handlers, I noticed repeated patterns across all modules.
+
+**What was done (AI):**
+
+- **`timer.js`** — `startTimer` and `resumeTimer` shared almost identical bodies; extracted `_runTimer(action)` so both delegate to it. `onTick()` extracted. `_showBtn` / `_hideBtn` helpers for button visibility.
+- **`slides.js`** — Repeated `dataChannel.send(JSON.stringify(...))` pattern extracted to `_sendToPhone(payload)`. Post-load steps (reinit Reveal.js → dropdown → send slide count → send notes) extracted to `_finalizeSlideLoad()`.
+- **`webrtc.js`** — All three `pc.on*` state-change listeners repeated for both desktop and phone peer connections; extracted `_setupPeerConnectionLogging(pc, tag)`.
+- **`script.js`** — All four `socket.on()` callbacks changed to named functions (`onConnect`, `onConnectError`, `onDisconnect`, `onCandidate`). The `localStorage` force-mode pattern extracted to `_applyForceMode(value, label)`.
+
+---
+
+#### Phase 16 — `addListeners` Utility Helper
+
+**Problem:** Both `setupDesktop()` and `setupMobile()` contained blocks of repetitive `document.getElementById(id).addEventListener(event, fn)` calls.
+
+**What AI did:** Added `addListeners(map)` to `utils.js`:
+
+```javascript
+export function addListeners(map) {
+  for (const [id, [event, handler]] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(event, handler);
+  }
+}
+```
+
+Both setup functions now use a single `addListeners({...})` call with an object mapping element IDs to `[eventName, handlerFn]` pairs. Null-safe — silently skips missing elements.
+
+---
+
+#### Phase 17 — Upload Overlay UI Simplification
+
+**Problem:** The upload overlay had too many buttons and a confusing flow:
+- A "Paste manually" textarea that duplicated the notes editor
+- A separate "Save Note" button before the send step
+- The QR button was buried in the middle of the panel
+- There was no visual indicator for the overlay when it was closed
+
+**What was done:**
+
+**HTML (both `index.html` and `index-desktop.html`):**
+- Removed the "Paste manually" textarea entirely
+- Removed the `#save-note-btn` button — saving is now implicit
+- Merged save + send into a single `#send-notes-btn` labelled **"Send to Phone"**
+- Moved `#show-qr-btn` directly under the overlay header (first actionable item)
+
+**`slides.js`:**
+- Added `saveAndSendCurrentNote()` — saves the note to `state.customNotes` and immediately sends it over the data channel in one step, replacing the old two-button flow
+
+**`webrtc.js`:**
+- `send-notes-btn` now calls `saveAndSendCurrentNote` instead of the old `saveNoteForSlide`
+- Removed `onLoadSlidesClick` handler (the separate "Load Slides" button was removed)
+
+**CSS (`style.css`):**
+- Toggle button (`.toggle-overlay-btn`) restyled to a small 40×40 px icon (`☰`) anchored `bottom: 16px; left: 16px` — unobtrusive when the overlay is closed
+- Toggle button hidden via CSS sibling selector when the overlay is open (so it doesn't overlap)
+- Close button (`.close-overlay-btn`) changed to a solid red circle (`background: #cc2222; border-radius: 50%`) — clearly destructive, always visible
+- Overlay position changed to `bottom: 60px; left: 16px; width: 300px` to match the new toggle position; slide-in animation changed from `translateX` to `translateY(20px)`
+
+---
+
