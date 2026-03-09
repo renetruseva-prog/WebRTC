@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>WebRTC Chat - Phone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div id="mobile">
+    <h1>🎤 Presenter View</h1>
+    <div id="presentation-name" style="text-align: center; font-size: 14px; opacity: 0.8; margin-bottom: 10px;">No presentation uploaded</div>
+    
+    <div class="presenter-container">
+      <!-- Speaker Notes Section -->
+      <div class="notes-area">
+        <div class="notes-label">📝 Speaker Notes</div>
+        <div id="speaker-notes">Waiting for notes...</div>
+        <div class="current-slide-info" id="slide-info">Slide 1/?</div>
+      </div>
+
+      <!-- Slide Navigation -->
+      <div class="slide-nav-buttons">
+        <button id="prev-slide-btn" title="Previous slide">← Prev</button>
+        <button id="next-slide-btn" title="Next slide">Next →</button>
+      </div>
+
+      <!-- Timer Section -->
+      <div class="timer-container">
+        <div class="timer-label">⏱️ Presentation Timer</div>
+        <div class="timer-display" id="timer-display">00:00</div>
+        <div class="timer-controls">
+          <button class="timer-btn" id="timer-start">Start</button>
+          <button class="timer-btn" id="timer-pause" style="display: none;">Pause</button>
+          <button class="timer-btn" id="timer-resume" style="display: none;">Resume</button>
+          <button class="timer-btn" id="timer-reset">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reveal.js CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Add markdown-it library for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Add PDF.js for PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+  <script type="module" src="script.js"></script>
+</body>
+
+</html>
