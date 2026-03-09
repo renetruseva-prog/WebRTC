@@ -164,8 +164,19 @@ function _handleMessage(msg) {
     case 'notes':
     case 'slide-notes':
       if (isMobile()) {
+        // Store silently — never change which slide the phone is viewing
         state.phoneNotes[msg.slideIndex] = msg.content;
-        // Always follow the desktop's current slide so gyroscope tracking stays in sync
+        // Only refresh display if this note is for the slide already on screen
+        if (msg.slideIndex === state.currentPhoneSlide) {
+          displayPhoneNote(state.currentPhoneSlide);
+        }
+        updateSlideNavigationButtons();
+      }
+      break;
+
+    case 'slide-change':
+      if (isMobile()) {
+        // Desktop moved to a new slide — sync phone position
         displayPhoneNote(msg.slideIndex);
         updateSlideNavigationButtons();
       }
@@ -261,6 +272,11 @@ export async function setupDesktop() {
   function onSlideChanged() {
     const slideIndex = state.Reveal_Instance.getState().indexh;
     sendSlideNotesToPhone(slideIndex);
+    // Separate message so the phone can sync its current slide position
+    // without getting confused by manual note sends for other slides
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'slide-change', slideIndex }));
+    }
   }
   function onPhoneLeft() {
     console.log('[DESKTOP] Phone left!');
