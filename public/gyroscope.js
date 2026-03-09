@@ -134,7 +134,7 @@ export function setupGyroscopeControl() {
     try {
       state.dataChannel.send(JSON.stringify(message));
       const label = direction === 'next' ? '▶ next' : '◀ prev';
-      if (actionEl) { actionEl.textContent = '✅ Sent: ' + label; actionEl.style.color = '#4CAF50'; }
+      if (actionEl) { actionEl.textContent = '✅ Sent: ' + label; actionEl.style.color = '#ffffff'; }
       console.log('[PHONE] Gyroscope command sent:', direction);
     } catch (e) {
       if (actionEl) { actionEl.textContent = '❌ Send failed'; actionEl.style.color = '#f44'; }
