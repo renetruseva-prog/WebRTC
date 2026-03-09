@@ -8,6 +8,7 @@ import {
   updateNoteEditorForSlide, saveAndSendCurrentNote
 } from './slides.js';
 import { setupGyroscopeControl } from './gyroscope.js';
+import { setupLaserPointer, clearLaserCanvas, drawLaserDot } from './laser.js';
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
@@ -215,6 +216,14 @@ function _handleMessage(msg) {
         console.log('[DESKTOP] Slide changed via gyroscope:', msg.direction);
       }
       break;
+
+    case 'laser':
+      if (!isMobile()) drawLaserDot(msg.x, msg.y);
+      break;
+
+    case 'laser-clear':
+      if (!isMobile()) clearLaserCanvas();
+      break;
   }
 }
 
@@ -272,6 +281,7 @@ export async function setupDesktop() {
   function onSlideChanged() {
     const slideIndex = state.Reveal_Instance.getState().indexh;
     sendSlideNotesToPhone(slideIndex);
+    clearLaserCanvas();
     // Separate message so the phone can sync its current slide position
     // without getting confused by manual note sends for other slides
     if (state.dataChannel && state.dataChannel.readyState === 'open') {
@@ -453,6 +463,9 @@ export async function setupMobile() {
 
   // Setup gyroscope control for slide navigation
   setupGyroscopeControl();
+
+  // Setup laser pointer touch pad
+  setupLaserPointer();
 
   // Signal desktop that phone is ready (slight delay to ensure socket is registered)
   setTimeout(() => {
