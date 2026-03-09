@@ -381,15 +381,21 @@ export async function setupMobile() {
 
   // ── Event handlers ─────────────────────────────────────────────────────────
   function onPrevSlide() {
-    if (state.currentPhoneSlide > 0) {
-      displayPhoneNote(state.currentPhoneSlide - 1);
-      updateSlideNavigationButtons();
+    // Send to desktop to change slide there; it will send back 'slide-change'
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'gyroscope-slide', direction: 'prev' }));
+      console.log('[PHONE] Prev button pressed, command sent to desktop');
+    } else {
+      console.warn('[PHONE] Data channel not ready for prev slide');
     }
   }
   function onNextSlide() {
-    if (state.totalPhoneSlides > 0 && state.currentPhoneSlide < state.totalPhoneSlides - 1) {
-      displayPhoneNote(state.currentPhoneSlide + 1);
-      updateSlideNavigationButtons();
+    // Send to desktop to change slide there; it will send back 'slide-change'
+    if (state.dataChannel && state.dataChannel.readyState === 'open') {
+      state.dataChannel.send(JSON.stringify({ type: 'gyroscope-slide', direction: 'next' }));
+      console.log('[PHONE] Next button pressed, command sent to desktop');
+    } else {
+      console.warn('[PHONE] Data channel not ready for next slide');
     }
   }
   async function onOffer(offer) {
