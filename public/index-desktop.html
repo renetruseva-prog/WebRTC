@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>WebRTC Chat - Desktop</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div id="desktop">
+    <!-- Upload Controls (Hidden by default) -->
+    <div class="upload-overlay hidden" id="upload-overlay">
+      <div class="upload-overlay-header">
+        <h2>📋 Presentation Controls</h2>
+        <button class="close-overlay-btn" id="close-overlay-btn" title="Close panel">✕</button>
+      </div>
+      
+      <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
+      
+      <div style="margin-bottom: 10px; margin-top: 10px;">
+        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin-bottom: 8px;" />
+        <button class="upload-btn" id="upload-file-btn">Upload File</button>
+      </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
+        <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
+        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6"></textarea>
+        <button class="upload-btn" id="load-slides-btn">Load Slides</button>
+      </div>
+
+      <!-- Notes Editor Section -->
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
+        <label style="font-weight: bold; font-size: 14px;">📝 Add Notes:</label>
+        <div style="margin-top: 8px; margin-bottom: 8px;">
+          <label style="font-size: 12px; opacity: 0.8;">Slide:</label>
+          <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 4px;">
+            <option>Select a slide...</option>
+          </select>
+        </div>
+        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" style="margin-bottom: 8px;"></textarea>
+        <button class="upload-btn" id="save-note-btn" style="width: 100%; background: #55aa55;">Save Note</button>
+        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55ff55; color: #000; margin-top: 4px;">Send Notes to Phone</button>
+      </div>
+
+      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-top: 10px; width: 100%;">Show QR</button>
+    </div>
+
+    <!-- Reveal.js Presentation Container -->
+    <div class="reveal-container">
+      <div class="reveal">
+        <div class="slides" id="slides-container">
+          <section>
+            <h2>WebRTC Presenter</h2>
+            <p>Upload a markdown file or paste slides above to begin</p>
+            <p style="font-size: 18px; margin-top: 40px; opacity: 0.7;">Use <code>---</code> to separate slides</p>
+          </section>
+        </div>
+      </div>
+      <!-- Desktop Timer Display -->
+      <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
+        <span id="desktop-timer-display">00:00</span>
+      </div>
+      <!-- Connection Status Display -->
+      <div id="connection-status-display" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none;">
+        <span id="connection-status-text">📡 Waiting for phone...</span>
+      </div>
+    </div>
+
+    <!-- Toggle Button for Upload Panel -->
+    <button class="toggle-overlay-btn" id="toggle-overlay-btn">Start the process</button>
+
+    <!-- QR Code Modal -->
+    <div id="qr-overlay" class="qr-overlay hidden">
+      <div class="qr-modal">
+        <h3>Scan to Connect Phone</h3>
+        <div id="qr"></div>
+        <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
+        <button class="close-qr" id="close-qr-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reveal.js CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Add markdown-it library for markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Add PDF.js for PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+  <script src="script.js"></script>
+</body>
+
+</html>

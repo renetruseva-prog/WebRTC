@@ -326,6 +326,8 @@ socket.on('phone-left', () => {
 
 ---
 
+### Week 2 — Bug Fixes, UI Polish & Timer Sync (2026-03-02)
+
 ### Phase 8 — Bug Fix: Notes showing slide content instead of user input
 
 **Bug I reported:** On the phone, the speaker notes panel was displaying the actual text from the slide instead of the custom notes I typed on desktop.
