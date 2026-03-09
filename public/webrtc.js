@@ -5,7 +5,7 @@ import { startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerDisplay, up
 import {
   loadSlides, loadPDFSlides, extractTextFromPDF,
   sendSlideNotesToPhone, sendSlideCountToPhone,
-  updateNoteEditorForSlide, saveNoteForSlide
+  updateNoteEditorForSlide, saveAndSendCurrentNote
 } from './slides.js';
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
@@ -219,10 +219,6 @@ export async function setupDesktop() {
   function closeQROverlay() {
     document.getElementById('qr-overlay').classList.add('hidden');
   }
-  function onLoadSlidesClick() {
-    const markdown = document.getElementById('markdown-input').value;
-    if (markdown.trim()) loadSlides(markdown, 'Pasted Presentation');
-  }
   function onUploadFileClick() {
     const fileInput = document.getElementById('file-upload');
     if (fileInput.files.length === 0) { alert('Please select a file first'); return; }
@@ -235,9 +231,7 @@ export async function setupDesktop() {
           loadPDFSlides(pdfSlides, file.name);
           console.log('PDF loaded with', pdfSlides.length, 'pages');
         } else {
-          const content = e.target.result;
-          document.getElementById('markdown-input').value = content;
-          loadSlides(content, file.name);
+          loadSlides(e.target.result, file.name);
           console.log('Slides loaded from file:', file.name);
         }
       } catch (error) {
@@ -281,11 +275,9 @@ export async function setupDesktop() {
     'close-overlay-btn':  ['click',  closeUploadOverlay],
     'show-qr-btn':        ['click',  openQROverlay],
     'close-qr-btn':       ['click',  closeQROverlay],
-    'load-slides-btn':    ['click',  onLoadSlidesClick],
     'upload-file-btn':    ['click',  onUploadFileClick],
     'note-slide-select':  ['change', updateNoteEditorForSlide],
-    'save-note-btn':      ['click',  saveNoteForSlide],
-    'send-notes-btn':     ['click',  sendAllNotesToPhone],
+    'send-notes-btn':     ['click',  saveAndSendCurrentNote],
   });
 
   // ── Reveal.js presentation ─────────────────────────────────────────────────

@@ -193,3 +193,21 @@ export function saveNoteForSlide() {
     showButtonFeedback(saveBtn, 'Select a slide first ⚠️', 2000);
   }
 }
+
+// Save the current note and immediately send it to the phone in one action
+export function saveAndSendCurrentNote() {
+  const select     = document.getElementById('note-slide-select');
+  const noteEditor = document.getElementById('note-editor');
+  const sendBtn    = document.getElementById('send-notes-btn');
+  const slideIndex = parseInt(select.value);
+
+  if (isNaN(slideIndex) || slideIndex < 0) {
+    showButtonFeedback(sendBtn, 'Select a slide first ⚠️', 2000);
+    return;
+  }
+
+  const content = noteEditor.value || 'No notes for this slide';
+  state.customNotes[slideIndex] = noteEditor.value;
+  _sendToPhone({ type: 'notes', slideIndex, content });
+  showButtonFeedback(sendBtn, 'Sent ✅');
+}

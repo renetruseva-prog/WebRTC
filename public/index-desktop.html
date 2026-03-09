@@ -16,35 +16,24 @@
         <h2>📋 Presentation Controls</h2>
         <button class="close-overlay-btn" id="close-overlay-btn" title="Close panel">✕</button>
       </div>
-      
-      <label for="markdown-input" style="font-weight: bold;">📁 Load Slides:</label>
-      
-      <div style="margin-bottom: 10px; margin-top: 10px;">
-        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin-bottom: 8px;" />
+
+      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-bottom: 12px; width: 100%;">📱 Show QR to connect phone</button>
+
+      <div style="margin-bottom: 12px;">
+        <label style="font-weight: bold; font-size: 13px;">📁 Load Slides:</label>
+        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin: 8px 0;" />
         <button class="upload-btn" id="upload-file-btn">Upload File</button>
       </div>
 
-      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
-        <label style="font-size: 12px; opacity: 0.8;">Or paste manually:</label>
-        <textarea id="markdown-input" class="upload-input" placeholder="Paste Markdown slides here... Use --- to separate slides" rows="6"></textarea>
-        <button class="upload-btn" id="load-slides-btn">Load Slides</button>
-      </div>
-
       <!-- Notes Editor Section -->
-      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-bottom: 10px;">
-        <label style="font-weight: bold; font-size: 14px;">📝 Add Notes:</label>
-        <div style="margin-top: 8px; margin-bottom: 8px;">
-          <label style="font-size: 12px; opacity: 0.8;">Slide:</label>
-          <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 4px;">
-            <option>Select a slide...</option>
-          </select>
-        </div>
-        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" style="margin-bottom: 8px;"></textarea>
-        <button class="upload-btn" id="save-note-btn" style="width: 100%; background: #55aa55;">Save Note</button>
-        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55ff55; color: #000; margin-top: 4px;">Send Notes to Phone</button>
+      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
+        <label style="font-weight: bold; font-size: 13px;">📝 Speaker Notes:</label>
+        <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 6px;">
+          <option>Select a slide...</option>
+        </select>
+        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" style="margin-top: 6px; margin-bottom: 6px;"></textarea>
+        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55aa55;">Send to Phone</button>
       </div>
-
-      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-top: 10px; width: 100%;">Show QR</button>
     </div>
 
     <!-- Reveal.js Presentation Container -->
@@ -69,7 +58,7 @@
     </div>
 
     <!-- Toggle Button for Upload Panel -->
-    <button class="toggle-overlay-btn" id="toggle-overlay-btn">Start the process</button>
+    <button class="toggle-overlay-btn" id="toggle-overlay-btn" title="Open presentation controls">☰</button>
 
     <!-- QR Code Modal -->
     <div id="qr-overlay" class="qr-overlay hidden">
