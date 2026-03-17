@@ -6,6 +6,7 @@ export const state = {
   Reveal_Instance: null,
   socketConnected: false,
   dataChannelReady: false,
+  isPhone: false,          // set to true by script-mobile.js before setup runs
   presentationName: 'No presentation uploaded',
   customNotes: {},
   phoneNotes: {},

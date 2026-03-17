@@ -67,21 +67,3 @@ async function init() {
   console.log('Final mode:', shouldBePhone ? 'MOBILE' : 'DESKTOP');
   shouldBePhone ? setupMobile() : setupDesktop();
 }
-
-// ─── Console Helpers (for testing on desktop browser) ─────────────────────────
-
-function _applyForceMode(value, label) {
-  if (value) {
-    localStorage.setItem('forceMode', value);
-  } else {
-    localStorage.removeItem('forceMode');
-  }
-  alert(`${label}. Reloading page...`);
-  location.reload();
-}
-
-window.forcePhone   = () => _applyForceMode('phone',   'Force mode set to PHONE');
-window.forceDesktop = () => _applyForceMode('desktop', 'Force mode set to DESKTOP');
-window.clearForce   = () => _applyForceMode(null,      'Force mode cleared');
-
-console.log('💡 Console helpers: forcePhone() | forceDesktop() | clearForce()');

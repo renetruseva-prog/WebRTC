@@ -122,7 +122,7 @@ export function loadDefaultSlides() {
   loadSlides(DEFAULT_SLIDES, 'Demo Presentation');
 }
 
-export function parseMarkdownSlides(markdown) {
+function parseMarkdownSlides(markdown) {
   const slides = markdown.split('---').map(s => s.trim()).filter(s => s.length > 0);
   return slides.map(slide => {
     const notesIndex = slide.indexOf('Notes:');
@@ -230,7 +230,7 @@ function _sendToPhone(payload) {
   }
 }
 
-export function sendPresentationNameToPhone() {
+function sendPresentationNameToPhone() {
   _sendToPhone({ type: 'presentation-name', name: state.presentationName });
   console.log('[DESKTOP] Sent presentation name to phone:', state.presentationName);
 }
@@ -241,7 +241,7 @@ export function sendSlideNotesToPhone(slideIndex) {
   _sendToPhone({ type: 'notes', slideIndex, content });
 }
 
-export function sendSlideCountToPhone() {
+function sendSlideCountToPhone() {
   const total = document.querySelectorAll('.reveal .slides section').length;
   if (total > 0) {
     _sendToPhone({ type: 'slide-count', total });
@@ -269,7 +269,7 @@ export function syncAllSlidesToPhone() {
 
 // --- Notes Editor UI ---
 
-export function populateSlideDropdown() {
+function populateSlideDropdown() {
   const slides  = document.querySelectorAll('.reveal .slides section');
   const select  = document.getElementById('note-slide-select');
   select.innerHTML = '';
@@ -288,20 +288,6 @@ export function updateNoteEditorForSlide() {
   const noteEditor = document.getElementById('note-editor');
   const slideIndex = parseInt(select.value);
   noteEditor.value = (slideIndex >= 0) ? (state.customNotes[slideIndex] || '') : '';
-}
-
-export function saveNoteForSlide() {
-  const select     = document.getElementById('note-slide-select');
-  const noteEditor = document.getElementById('note-editor');
-  const saveBtn    = document.getElementById('save-note-btn');
-  const slideIndex = parseInt(select.value);
-
-  if (slideIndex >= 0) {
-    state.customNotes[slideIndex] = noteEditor.value;
-    showButtonFeedback(saveBtn, 'Note Saved ✅');
-  } else {
-    showButtonFeedback(saveBtn, 'Select a slide first ⚠️', 2000);
-  }
 }
 
 // Save the current note and immediately send it to the phone in one action
