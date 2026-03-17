@@ -1099,28 +1099,6 @@ if (isConnected) {
 
 ---
 
-#### Week 4 - Critical Reflection on AI Use
-
-Through Phases 20-22, AI handled the heavy reconnection architecture, while I implemented front-end changes and easy JS integration that shaped the final user flow.
-
-**What I contributed:**
-- **Reconnection flow integration** — I wired `offerSent` guard usage and the `phone-left` reset hook so reconnection worked without desktop refresh
-- **Single-phone protection code** — I implemented the `phones.size > 0` reject path and connected `phone-rejected` UI rendering on mobile
-- **Instant upload refactor** — I removed redundant upload button HTML and wired file input `change` to load slides directly
-- **Connection badge implementation** — I implemented the persistent badge placement and visual states (red idle, yellow pulsing, green connected)
-- **QR overlay lifecycle** — I added the connected-state auto-close condition for the QR modal
-- **Laser control layout update** — I moved the laser block below gyroscope controls and restored the inline 16:9 pad flow
-- **End-to-end verification** — I tested reconnect, second-phone rejection, upload flow, badge states, and laser placement on device
-
-**What AI generated:**
-- The `prepareOffer()` / `sendOffer()` reconnection architecture and the `phone-left` reset flow
-- Reliability safeguards around signaling/session state during reconnect and rejection scenarios
-- `onFileChange` implementation with FileReader handling for both markdown and PDF
-- Final state-handling refinements for badge updates and QR close behavior
-- UI polish suggestions for final laser spacing and control states
-
----
-
 #### Phase 23 — Presentation Timer Warnings System (2026-03-17)
 
 **Problem:** Presenters needed advance warnings when their presentation time was running out, with alerts visible on both desktop and mobile.
@@ -1157,14 +1135,30 @@ Through Phases 20-22, AI handled the heavy reconnection architecture, while I im
 - Enhanced `updateProgressBar()` to show real-time countdown with "X:XX left" display
 - Integrated warning checks into main timer tick via `updateTimerDisplay()`
 
-**Technical Features:**
-- ✅ Dual warning system (first + final warnings at custom intervals)
-- ✅ Cross-device synchronization via WebRTC data channel
-- ✅ Visual feedback: progress bars, animated popups, color transitions
-- ✅ Audio feedback: MP3 playback + web audio fallback
-- ✅ Haptic feedback: phone vibration with pattern variations
-- ✅ Auto-reset: warning flags and UI state on timer reset
+---
+
+#### Week 4 - Critical Reflection on AI Use
+
+Through Phases 20-22, AI handled the heavy reconnection architecture, while I implemented front-end changes and easy JS integration that shaped the final user flow.
+
+**What I contributed:**
+- **Reconnection flow integration** — I wired `offerSent` guard usage and the `phone-left` reset hook so reconnection worked without desktop refresh
+- **Single-phone protection code** — I implemented the `phones.size > 0` reject path and connected `phone-rejected` UI rendering on mobile
+- **Instant upload refactor** — I removed redundant upload button HTML and wired file input `change` to load slides directly
+- **Connection badge implementation** — I implemented the persistent badge placement and visual states (red idle, yellow pulsing, green connected)
+- **QR overlay lifecycle** — I added the connected-state auto-close condition for the QR modal
+- **Laser control layout update** — I moved the laser block below gyroscope controls and restored the inline 16:9 pad flow
+- **End-to-end verification** — I tested reconnect, second-phone rejection, upload flow, badge states, and laser placement on device
+
+**What AI generated:**
+- The `prepareOffer()` / `sendOffer()` reconnection architecture and the `phone-left` reset flow
+- Reliability safeguards around signaling/session state during reconnect and rejection scenarios
+- `onFileChange` implementation with FileReader handling for both markdown and PDF
+- Final state-handling refinements for badge updates and QR close behavior
+- UI polish suggestions for final laser spacing and control states
 
 ---
+
+
 
 
