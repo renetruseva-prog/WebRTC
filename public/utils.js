@@ -1,9 +1,5 @@
 // Pure utility / helper functions with no dependencies
 
-export function isMobile() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
 export function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;

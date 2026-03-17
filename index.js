@@ -2,8 +2,9 @@ const express = require('express');
 const app = express();
 const https = require('https');
 const fs = require('fs');
+const path = require('path');
 const { Server } = require("socket.io");
-const { networkInterfaces } = require('os'); 
+const { networkInterfaces } = require('os');
 
 const port = 3000;
 
@@ -25,10 +26,16 @@ for (const name of Object.keys(nets)) {
   }
 }
 
+// Desktop opens root URL → gets desktop page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index-desktop.html'));
+});
+
 app.use(express.static('public'));
 
 app.get('/config', (req, res) => {
-  res.json({ url: `https://${localIp}:${port}` });
+  // QR code URL points to /index.html so phones get the mobile page
+  res.json({ url: `https://${localIp}:${port}/index.html` });
 });
 
 const phones = new Set();

@@ -1,10 +1,10 @@
 // WebRTC connection, data channel messaging, and per-device setup (desktop / mobile)
 import { state, webrtcConfig } from './state.js';
-import { isMobile, showButtonFeedback, addListeners } from './utils.js';
-import { startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerDisplay, updateTimerButtonStates, setupTimerSettings, showDesktopWarning, initializeBuzzAudio } from './timer.js';
+import { showButtonFeedback, addListeners } from './utils.js';
+import { startTimer, pauseTimer, resumeTimer, resetTimer, setupTimerSettings, showDesktopWarning, initializeBuzzAudio } from './timer.js';
 import {
   loadSlides, loadPDFSlides, extractTextFromPDF,
-  sendSlideNotesToPhone, sendSlideCountToPhone,
+  sendSlideNotesToPhone,
   updateNoteEditorForSlide, saveAndSendCurrentNote,
   loadDefaultSlides, syncAllSlidesToPhone
 } from './slides.js';
@@ -60,7 +60,7 @@ function updateSlideNavigationButtons() {
 
 // ─── Desktop Connection Status ────────────────────────────────────────────────
 
-function setConnectionStatus(message, color, isConnected) {
+function setConnectionStatus(message, isConnected) {
   const statusIndicator = document.getElementById('connection-status-inline');
   const sendBtn = document.getElementById('send-notes-btn');
   const qrModalStatus = document.getElementById('connection-status');
@@ -185,14 +185,6 @@ function gotoStep(stepNumber) {
   }
 }
 
-function enableStep(stepNumber) {
-  // In the new design, "enabling" means making it accessible and progressing to it
-  if (stepNumber > maxStepReached) {
-    maxStepReached = stepNumber;
-    showStep(stepNumber);
-  }
-}
-
 function disableStep(stepNumber) {
   // If we're on this step and it becomes unavailable, go back to a previous step
   if (stepNumber === currentStep && stepNumber > 1) {
@@ -247,51 +239,16 @@ function showSetupMenu() {
   console.log('[DESKTOP] Setup menu shown - toggle button hidden');
 }
 
-function sendAllNotesToPhone() {
-  const sendBtn = document.getElementById('send-notes-btn');
-
-  if (!state.dataChannel) {
-    console.error('[DESKTOP] No data channel exists');
-    showButtonFeedback(sendBtn, 'Reload & reconnect ⚠️', 3000);
-    return;
-  }
-
-  if (state.dataChannel.readyState !== 'open') {
-    console.error(`[DESKTOP] Data channel state is '${state.dataChannel.readyState}', not 'open'`);
-    showButtonFeedback(sendBtn, 'Phone connecting... try again', 3000);
-    return;
-  }
-
-  let allNotesSent = 0;
-  for (const [slideIndex, noteContent] of Object.entries(state.customNotes)) {
-    if (noteContent && noteContent.trim()) {
-      state.dataChannel.send(JSON.stringify({
-        type: 'slide-notes',
-        slideIndex: parseInt(slideIndex),
-        content: noteContent
-      }));
-      console.log(`Sent note for slide ${slideIndex}: ${noteContent.substring(0, 50)}...`);
-      allNotesSent++;
-    }
-  }
-
-  if (allNotesSent > 0) {
-    showButtonFeedback(sendBtn, `Sent ${allNotesSent} note(s) ✅`);
-  } else {
-    showButtonFeedback(sendBtn, 'No notes to send ⚠️', 2500);
-  }
-}
-
 // ─── Data Channel ─────────────────────────────────────────────────────────────
 
 export function setupDataChannel(channel) {
-  const deviceType = isMobile() ? '[PHONE]' : '[DESKTOP]';
+  const deviceType = state.isPhone ? '[PHONE]' : '[DESKTOP]';
 
   channel.onopen = () => {
     console.log(deviceType, 'WebRTC Data Channel OPENED - Ready State:', channel.readyState);
     state.dataChannelReady = true;
-    if (!isMobile()) {
-      setConnectionStatus('✅ Phone Connected — ready to send notes', 'rgba(0, 180, 0, 0.8)', true);
+    if (!state.isPhone) {
+      setConnectionStatus('✅ Phone Connected — ready to send notes', true);
 
       // Sync all current slide data with the newly connected phone
       syncAllSlidesToPhone();
@@ -300,7 +257,7 @@ export function setupDataChannel(channel) {
 
   channel.onerror = (error) => {
     state.dataChannelReady = false;
-    if (!isMobile()) setConnectionStatus('❌ Connection error', 'rgba(255, 0, 0, 0.8)', false);
+    if (!state.isPhone) setConnectionStatus('❌ Connection error', false);
     console.error(deviceType, 'Data Channel Error:', error);
   };
 
@@ -326,7 +283,7 @@ function _handleMessage(msg) {
   switch (msg.type) {
     case 'notes':
     case 'slide-notes':
-      if (isMobile()) {
+      if (state.isPhone) {
         // Store silently — never change which slide the phone is viewing
         state.phoneNotes[msg.slideIndex] = msg.content;
         // Only refresh display if this note is for the slide already on screen
@@ -338,7 +295,7 @@ function _handleMessage(msg) {
       break;
 
     case 'slide-change':
-      if (isMobile()) {
+      if (state.isPhone) {
         // Desktop moved to a new slide — sync phone position
         displayPhoneNote(msg.slideIndex);
         updateSlideNavigationButtons();
@@ -346,14 +303,14 @@ function _handleMessage(msg) {
       break;
 
     case 'presentation-name':
-      if (isMobile()) {
+      if (state.isPhone) {
         state.presentationName = msg.name;
         document.getElementById('presentation-name').textContent = msg.name;
       }
       break;
 
     case 'slide-count':
-      if (isMobile()) {
+      if (state.isPhone) {
         state.totalPhoneSlides = msg.total;
         if (state.totalPhoneSlides > 0) displayPhoneNote(0);
         updateSlideInfo();
@@ -362,20 +319,20 @@ function _handleMessage(msg) {
       break;
 
     case 'timer-control':
-      if (!isMobile()) {
+      if (!state.isPhone) {
         const actions = { start: startTimer, pause: pauseTimer, resume: resumeTimer, reset: resetTimer };
         if (actions[msg.action]) actions[msg.action]();
       }
       break;
 
     case 'timer-warning':
-      if (!isMobile()) {
+      if (!state.isPhone) {
         showDesktopWarning(msg.message, msg.isUrgent);
       }
       break;
 
     case 'gyroscope-slide':
-      if (!isMobile()) {
+      if (!state.isPhone) {
         if (msg.direction === 'next') {
           state.Reveal_Instance.next();
         } else if (msg.direction === 'prev') {
@@ -386,11 +343,11 @@ function _handleMessage(msg) {
       break;
 
     case 'laser':
-      if (!isMobile()) drawLaserDot(msg.x, msg.y);
+      if (!state.isPhone) drawLaserDot(msg.x, msg.y);
       break;
 
     case 'laser-clear':
-      if (!isMobile()) clearLaserCanvas();
+      if (!state.isPhone) clearLaserCanvas();
       break;
   }
 }
@@ -543,14 +500,14 @@ export async function setupDesktop() {
 
   // Prepare the first offer
   await prepareOffer();
-  setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
+  setConnectionStatus('📡 Waiting for phone...', false);
 
   // Simple guard: only send the offer once per connection cycle
   const sendOffer = () => {
     if (offerSent) return;
     offerSent = true;
     console.log('[DESKTOP] Sending offer to phone');
-    setConnectionStatus('⏳ Connecting to phone...', 'rgba(255, 165, 0, 0.8)', false);
+    setConnectionStatus('⏳ Connecting to phone...', false);
     state.socket.emit('offer', offer);
   };
 
@@ -560,11 +517,11 @@ export async function setupDesktop() {
   // When phone leaves: clean up and prepare a fresh offer for next connection
   state.socket.on('phone-left', async () => {
     console.log('[DESKTOP] Phone left, preparing for reconnection');
-    setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
+    setConnectionStatus('❌ Phone Disconnected', false);
     disableStep(3);
     offerSent = false;
     await prepareOffer();
-    setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
+    setConnectionStatus('📡 Waiting for phone...', false);
   });
 
   state.socket.on('answer', onAnswer);
@@ -594,8 +551,6 @@ export async function setupMobile() {
 
   const revealContainer = document.querySelector('.reveal-container');
   if (revealContainer) revealContainer.remove();
-  const toggleBtn = document.getElementById('toggle-overlay-btn');
-  if (toggleBtn) toggleBtn.style.display = 'none';
 
   console.log('[PHONE] UI switched to mobile mode');
 

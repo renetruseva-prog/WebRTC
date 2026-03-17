@@ -88,6 +88,8 @@
       <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
         <span id="desktop-timer-display">Timer: 00:00</span>
       </div>
+      <!-- Laser pointer canvas — sits over slides, pointer-events: none so clicks pass through -->
+      <canvas id="laser-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
     </div>
 
     <!-- Toggle Button for Setup Menu (shows when setup is hidden) -->
@@ -100,6 +102,14 @@
         <div id="qr"></div>
         <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
         <button class="secondary-btn" id="close-qr-btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Desktop Timer Warning Popup -->
+    <div id="desktop-warning-popup" class="desktop-warning-popup hidden">
+      <div class="warning-popup-content">
+        <div class="warning-popup-icon">⚠️</div>
+        <div class="warning-popup-text" id="desktop-warning-text">Warning message</div>
       </div>
     </div>
   </div>
@@ -121,7 +131,7 @@
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
-  <script type="module" src="script.js"></script>
+  <script type="module" src="script-desktop.js"></script>
 </body>
 
 </html>

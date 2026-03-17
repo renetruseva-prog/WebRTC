@@ -1,10 +1,10 @@
 // Presentation timer — controls the countdown/stopwatch shown on phone and desktop
 import { state } from './state.js';
-import { isMobile, formatTime } from './utils.js';
+import { formatTime } from './utils.js';
 
 // ─── Display ──────────────────────────────────────────────────────────────────
 
-export function updateTimerDisplay() {
+function updateTimerDisplay() {
   const timeStr = formatTime(state.timerState.elapsedSeconds);
   const timerDisplay = document.getElementById('timer-display');
   if (timerDisplay) timerDisplay.textContent = 'Timer: ' + timeStr;
@@ -18,8 +18,8 @@ export function updateTimerDisplay() {
   checkForWarnings();
 }
 
-export function updateProgressBar() {
-  if (!isMobile()) return;
+function updateProgressBar() {
+  if (!state.isPhone) return;
 
   const progressBar = document.getElementById('timer-progress-bar');
   const progressFill = document.getElementById('progress-fill');
@@ -41,8 +41,8 @@ export function updateProgressBar() {
   }
 }
 
-export function checkForWarnings() {
-  if (!isMobile() || !state.timerState.isRunning) return;
+function checkForWarnings() {
+  if (!state.isPhone || !state.timerState.isRunning) return;
 
   const totalSeconds = state.timerState.presentationDurationMinutes * 60;
   const remainingSeconds = totalSeconds - state.timerState.elapsedSeconds;
@@ -73,7 +73,7 @@ export function checkForWarnings() {
   }
 }
 
-export function sendWarningToDesktop(remainingSeconds, isUrgent) {
+function sendWarningToDesktop(remainingSeconds, isUrgent) {
   if (state.dataChannel && state.dataChannel.readyState === 'open') {
     const message = remainingSeconds > 0
       ? `You have ${remainingSeconds} seconds left`
@@ -118,7 +118,7 @@ let buzzAudio = null;
 let audioContextUnlocked = false;
 
 export function initializeBuzzAudio() {
-  if (!isMobile()) return;
+  if (!state.isPhone) return;
 
   try {
     buzzAudio = new Audio('/sounds/buzz_sound.mp3');
@@ -147,7 +147,7 @@ export function initializeBuzzAudio() {
   }
 }
 
-export function playMobileBuzzAlert(isUrgent = false) {
+function playMobileBuzzAlert(isUrgent = false) {
   console.log(`🔊 Playing mobile buzz alert - urgent: ${isUrgent}, audioUnlocked: ${audioContextUnlocked}`);
 
   // Vibrate phone if supported
@@ -198,7 +198,7 @@ export function playMobileBuzzAlert(isUrgent = false) {
   }
 }
 
-export function showWarning(message, isUrgent = false) {
+function showWarning(message, isUrgent = false) {
   const warningDiv = document.getElementById('timer-warning');
   const warningText = document.getElementById('warning-text');
 
@@ -214,7 +214,7 @@ export function showWarning(message, isUrgent = false) {
   }
 }
 
-export function playWarningSound(isUrgent = false) {
+function playWarningSound(isUrgent = false) {
   try {
     // Create audio context for web audio API
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -247,8 +247,8 @@ export function playWarningSound(isUrgent = false) {
   }
 }
 
-export function updateTimerButtonStates() {
-  if (!isMobile()) return; // Timer buttons only exist on phone
+function updateTimerButtonStates() {
+  if (!state.isPhone) return; // Timer buttons only exist on phone
   const startBtn  = document.getElementById('timer-start');
   const pauseBtn  = document.getElementById('timer-pause');
   const resumeBtn = document.getElementById('timer-resume');
@@ -321,7 +321,7 @@ export function resetTimer() {
 // ─── Settings Event Handlers ─────────────────────────────────────────────────
 
 export function setupTimerSettings() {
-  if (!isMobile()) return;
+  if (!state.isPhone) return;
 
   const durationInput = document.getElementById('duration-input');
   const warning1Input = document.getElementById('warning1-input');
