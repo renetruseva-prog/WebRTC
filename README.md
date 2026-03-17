@@ -926,10 +926,245 @@ Through Phases 18 and 19, AI helped me with architecture, diagnosis, and heavy l
 
 ---
 
-- **Planning for Week 4** 
+- **Planning for Week 4**
 - feature that gives you a warning 30/60 seconds before the end of your presentation (you can choose the time yourself?)
 - phone vibrates to give audio feedback -> haptics
 - enable / disable gyro
+- camera
 
+---
+
+### WEEK 4
+
+**Session: Reconnection, UX Polish & Laser UI** (2026-03-17)
+
+---
+
+#### Phase 20 — WebRTC Reconnection & Connection Reliability
+
+**Problem I identified:** After a phone disconnect (browser close or refresh), the desktop got stuck. A second QR scan often failed to reopen a usable data channel unless I reloaded the desktop page.
+
+---
+
+##### 20a — Phone reconnection in the same session
+
+**Root cause (AI + my debugging):** The same connection could trigger both `phone-joined` and `phone-ready`, so offer creation could run twice and race with answer handling.
+
+**What I implemented:** I wired the guard-based send flow in the live app and added reconnect reset on `phone-left` so scanning again works in the same desktop session.
+
+```javascript
+async function prepareOffer() {
+  if (state.peerConnection) state.peerConnection.close();
+  state.peerConnection = new RTCPeerConnection(webrtcConfig);
+  state.peerConnection.onicecandidate = onIceCandidateDesktop;
+  state.dataChannel = state.peerConnection.createDataChannel('controls');
+  setupDataChannel(state.dataChannel);
+  offer = await state.peerConnection.createOffer();
+  await state.peerConnection.setLocalDescription(offer);
+}
+
+const sendOffer = () => {
+  if (offerSent) return;
+  offerSent = true;
+  state.socket.emit('offer', offer);
+};
+
+state.socket.on('phone-left', async () => {
+  offerSent = false;
+  await prepareOffer();
+});
+```
+
+**AI contribution (core architecture):** AI generated the `prepareOffer()` reconnection structure and peer-connection refresh sequence.
+
+**I validated:** I tested repeated disconnect/reconnect cycles and confirmed rescanning now reconnects without desktop refresh.
+
+---
+
+##### 20b — Single phone enforcement
+
+**Problem I identified:** If a second device scanned the QR code, it could interfere with the active session.
+
+**What AI implemented (server/client JS tasks):** I added a server guard to reject additional phones and wired a clear rejection UI on the blocked device.
+
+```javascript
+// index.js
+socket.on('phone-ready', () => {
+  if (phones.size > 0) {
+    socket.emit('phone-rejected');
+    return;
+  }
+  phones.add(socket.id);
+  socket.broadcast.emit('phone-joined');
+  socket.broadcast.emit('phone-ready');
+});
+```
+
+```javascript
+// webrtc.js — phone side
+state.socket.on('phone-rejected', () => {
+  document.getElementById('mobile').innerHTML = `
+    <div style="...">
+      <div style="font-size:48px;">🔒</div>
+      <h2>Session In Use</h2>
+      <p>Another phone is already connected to this presentation.</p>
+    </div>`;
+});
+```
+
+**AI contribution:** AI refined surrounding reliability logic so this guard works cleanly with reconnect state.
+
+---
+
+#### Phase 21 — UX Polish
+
+---
+
+##### 21a — Instant file upload (no separate button)
+
+**Problem I identified:** Selecting a file still required a second click (`Replace with Your Slides`), which added unnecessary friction.
+
+**What AI did:** AI removed the extra button from the HTML and wired file input `change` directly to slide loading:
+
+```javascript
+function onFileChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // reads and loads PDF or markdown directly
+}
+// addListeners map:
+'file-upload': ['change', onFileChange]
+```
+
+**Result:** Selecting a file now immediately loads PDF/Markdown, which matches expected upload behavior.
+
+---
+
+##### 21b — Persistent phone connection badge
+
+**Problem I identified:** On initial load, there was no persistent visual signal for phone status.
+
+**What I did:** I implemented a persistent setup-header badge with three states and connected class updates through `setConnectionStatus()`:
+
+```css
+.phone-status-badge.connecting .phone-status-dot {
+  background: #ffd700;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.phone-status-badge.connected .phone-status-dot { background: #4CAF50; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+```
+
+**State design I implemented:** red = no phone, yellow pulsing = connecting, green = connected.
+
+---
+
+##### 21c — QR modal auto-close on phone connect
+
+**Problem I identified:** After scan/connect, the QR modal stayed open and needed a manual close.
+
+**What I added:** I added auto-dismiss in the connected branch so the overlay closes as soon as the connection is usable:
+
+```javascript
+if (isConnected) {
+  const qrOverlay = document.getElementById('qr-overlay');
+  if (qrOverlay) qrOverlay.classList.add('hidden');
+  // ... rest of step progression
+}
+```
+
+**AI contribution:** AI helped align this with the broader connection-state flow.
+
+---
+
+#### Phase 22 — Laser Pad Repositioning (2026-03-17)
+
+**Problem I identified:** The laser pad was too low in the phone layout (below timer/notes), so it felt disconnected from other gesture controls.
+
+**First attempt (AI):** AI tried a full-screen overlay version with a deactivate control.
+
+**Why I changed direction:** That design changed the interaction model too much. I wanted a compact inline pad, not a modal takeover.
+
+**What I implemented (HTML structure update):** I moved the laser section directly below gyroscope controls and kept the original inline 16:9 pad design:
+
+```html
+<!-- After #gyro-indicator, before .presenter-container -->
+<div style="margin: 8px 16px 4px; border-top: 1px solid ...">
+  <button id="laser-toggle-btn">🔴 Activate laser</button>
+  <div id="laser-pad" style="display:none; width:100%; aspect-ratio:16/9; ...">
+    <span>Touch to aim laser</span>
+  </div>
+</div>
+```
+
+---
+
+#### Week 4 - Critical Reflection on AI Use
+
+Through Phases 20-22, AI handled the heavy reconnection architecture, while I implemented front-end changes and easy JS integration that shaped the final user flow.
+
+**What I contributed:**
+- **Reconnection flow integration** — I wired `offerSent` guard usage and the `phone-left` reset hook so reconnection worked without desktop refresh
+- **Single-phone protection code** — I implemented the `phones.size > 0` reject path and connected `phone-rejected` UI rendering on mobile
+- **Instant upload refactor** — I removed redundant upload button HTML and wired file input `change` to load slides directly
+- **Connection badge implementation** — I implemented the persistent badge placement and visual states (red idle, yellow pulsing, green connected)
+- **QR overlay lifecycle** — I added the connected-state auto-close condition for the QR modal
+- **Laser control layout update** — I moved the laser block below gyroscope controls and restored the inline 16:9 pad flow
+- **End-to-end verification** — I tested reconnect, second-phone rejection, upload flow, badge states, and laser placement on device
+
+**What AI generated:**
+- The `prepareOffer()` / `sendOffer()` reconnection architecture and the `phone-left` reset flow
+- Reliability safeguards around signaling/session state during reconnect and rejection scenarios
+- `onFileChange` implementation with FileReader handling for both markdown and PDF
+- Final state-handling refinements for badge updates and QR close behavior
+- UI polish suggestions for final laser spacing and control states
+
+---
+
+#### Phase 23 — Presentation Timer Warnings System (2026-03-17)
+
+**Problem:** Presenters needed advance warnings when their presentation time was running out, with alerts visible on both desktop and mobile.
+
+**What I implemented:**
+
+**Mobile Timer Settings (HTML/CSS):**
+- Added customizable duration input (1-180 minutes) with number validation
+- Created custom warning time inputs (10-600s for first warning, 5-300s for final warning)
+- Implemented real-time progress bar with gradient colors (green → yellow → red)
+- Added animated warning display area with pulsing effects and auto-hide functionality
+
+**Cross-Device Warning System (JavaScript):**
+- Extended `state.js` timer configuration with `presentationDurationMinutes`, `warningOffset1`, `warningOffset2`, and trigger flags
+- Implemented `checkForWarnings()` logic in `timer.js` to monitor remaining time and trigger alerts
+- Added `sendWarningToDesktop()` function to send warning messages via WebRTC data channel
+- Created `timer-warning` message handler in `webrtc.js` to receive and display desktop warnings
+
+**Desktop Warning Popups (HTML/CSS):**
+- Designed fixed-position warning popup at top-center of desktop screen
+- Added gradient backgrounds (orange → red for urgent warnings)
+- Implemented automatic fade-out after 5 seconds with CSS transitions
+- Created pulsing animations for visual attention (`warningPopupPulse`, `urgentPopupPulse`)
+
+**Enhanced Mobile Alerts (JavaScript):**
+- Added phone vibration patterns (different intensities for regular vs urgent warnings)
+- Implemented `buzz_sound.mp3` audio playback with volume control
+- Created fallback to web audio beep if MP3 fails to load
+- Added `playMobileBuzzAlert()` with error handling and graceful degradation
+
+**Timer Logic Integration:**
+- Updated `setupTimerSettings()` to bind custom warning input changes to state
+- Modified `resetTimer()` to clear warning flags and hide progress indicators
+- Enhanced `updateProgressBar()` to show real-time countdown with "X:XX left" display
+- Integrated warning checks into main timer tick via `updateTimerDisplay()`
+
+**Technical Features:**
+- ✅ Dual warning system (first + final warnings at custom intervals)
+- ✅ Cross-device synchronization via WebRTC data channel
+- ✅ Visual feedback: progress bars, animated popups, color transitions
+- ✅ Audio feedback: MP3 playback + web audio fallback
+- ✅ Haptic feedback: phone vibration with pattern variations
+- ✅ Auto-reset: warning flags and UI state on timer reset
+
+---
 
 

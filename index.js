@@ -43,6 +43,11 @@ io.on('connection', (socket) => {
 
   // Track phone connections - phone emits this when it loads
   socket.on('phone-ready', () => {
+    if (phones.size > 0) {
+      console.log(`Phone rejected (session in use): ${socket.id}`);
+      socket.emit('phone-rejected');
+      return;
+    }
     console.log(`Phone ready: ${socket.id}`);
     phones.add(socket.id);
     // Notify desktops that a phone joined

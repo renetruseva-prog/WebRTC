@@ -41,7 +41,86 @@ export async function extractTextFromPDF(arrayBuffer) {
   }
 }
 
-// --- Markdown Parsing ---
+// --- Default Slides ---
+
+const DEFAULT_SLIDES = `# 🎯 WebRTC Presenter
+## Interactive Presentation Tool
+
+Welcome to your new presentation platform!
+
+---
+
+# 📱 Phone Remote Control
+## Turn Your Phone into a Presenter Remote
+
+- **Navigate slides** with gyroscope tilting
+- **View speaker notes** synced from desktop
+- **Control presentation timer**
+- **Use laser pointer** to highlight content
+
+---
+
+# 🚀 Getting Started
+## Three Simple Steps
+
+**1.** Load your slides (markdown or PDF)
+**2.** Connect your phone via QR code
+**3.** Add speaker notes (optional)
+
+Then you're ready to present!
+
+---
+
+# 📝 Speaker Notes
+## Add Notes for Each Slide
+
+Notes you write on desktop appear on your phone:
+- Talking points and reminders
+- Technical details
+- Audience interaction cues
+- Time estimates per slide
+
+Notes: This slide demonstrates how speaker notes work. These notes would appear on your phone as a presenter aid!
+
+---
+
+# ⏱️ Timer & Controls
+## Keep Track of Your Presentation
+
+- **Timer controls** on your phone
+- **Slide navigation** with gestures
+- **Laser pointer** for highlighting
+- **Real-time sync** between devices
+
+---
+
+# 🎨 Upload Your Own
+## Replace These Demo Slides
+
+Click **"Load Presentation"** above to:
+- Upload markdown files (.md)
+- Upload PDF presentations
+- Use **---** to separate slides in markdown
+- Add **Notes:** sections for speaker notes
+
+---
+
+# 💡 Pro Tips
+## Make the Most of Your Presentations
+
+- **Practice** with the gyroscope controls
+- **Test** your phone connection beforehand
+- **Prepare** speaker notes in advance
+- **Keep** slides simple and visual
+
+Ready to create amazing presentations!`;
+
+// --- Default Slide Loading ---
+
+export function loadDefaultSlides() {
+  console.log('[SLIDES] Loading default demo slides...');
+  loadSlides(DEFAULT_SLIDES, 'Demo Presentation');
+}
 
 export function parseMarkdownSlides(markdown) {
   const slides = markdown.split('---').map(s => s.trim()).filter(s => s.length > 0);
@@ -124,9 +203,16 @@ function _finalizeSlideLoad() {
   populateSlideDropdown();
   document.getElementById('desktop-timer').style.display = 'block';
   state.customNotes = {};
+
+  // Always send data to phone (if connected) and store for when phone connects
   sendPresentationNameToPhone();
   sendSlideCountToPhone();
   sendSlideNotesToPhone(0);
+
+  // Force sync all slide data with phone if connected
+  syncAllSlidesToPhone();
+
+  console.log('[SLIDES] Slide loading complete, synced with phone');
 }
 
 // --- Sending Data to Phone ---
@@ -135,6 +221,12 @@ function _finalizeSlideLoad() {
 function _sendToPhone(payload) {
   if (state.dataChannel && state.dataChannel.readyState === 'open') {
     state.dataChannel.send(JSON.stringify(payload));
+    console.log('[SLIDES] Sent to phone:', payload.type, payload);
+    return true;
+  } else {
+    console.log('[SLIDES] Cannot send to phone - data channel not ready:',
+      state.dataChannel ? state.dataChannel.readyState : 'no channel');
+    return false;
   }
 }
 
@@ -155,6 +247,24 @@ export function sendSlideCountToPhone() {
     _sendToPhone({ type: 'slide-count', total });
     console.log('[DESKTOP] Sent slide count to phone:', total);
   }
+}
+
+// Force sync all slide data when slides change or phone connects
+export function syncAllSlidesToPhone() {
+  if (!state.dataChannel || state.dataChannel.readyState !== 'open') {
+    console.log('[SLIDES] Phone not connected, will sync when connected');
+    return;
+  }
+
+  // Send presentation info
+  sendPresentationNameToPhone();
+  sendSlideCountToPhone();
+
+  // Send notes for current slide
+  const currentSlideIndex = state.Reveal_Instance ? state.Reveal_Instance.getState().indexh : 0;
+  sendSlideNotesToPhone(currentSlideIndex);
+
+  console.log('[SLIDES] Complete slide sync sent to phone');
 }
 
 // --- Notes Editor UI ---

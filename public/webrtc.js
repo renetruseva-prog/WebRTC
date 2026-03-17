@@ -1,11 +1,12 @@
 // WebRTC connection, data channel messaging, and per-device setup (desktop / mobile)
 import { state, webrtcConfig } from './state.js';
 import { isMobile, showButtonFeedback, addListeners } from './utils.js';
-import { startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerDisplay, updateTimerButtonStates } from './timer.js';
+import { startTimer, pauseTimer, resumeTimer, resetTimer, updateTimerDisplay, updateTimerButtonStates, setupTimerSettings, showDesktopWarning, initializeBuzzAudio } from './timer.js';
 import {
   loadSlides, loadPDFSlides, extractTextFromPDF,
   sendSlideNotesToPhone, sendSlideCountToPhone,
-  updateNoteEditorForSlide, saveAndSendCurrentNote
+  updateNoteEditorForSlide, saveAndSendCurrentNote,
+  loadDefaultSlides, syncAllSlidesToPhone
 } from './slides.js';
 import { setupGyroscopeControl } from './gyroscope.js';
 import { setupLaserPointer, clearLaserCanvas, drawLaserDot } from './laser.js';
@@ -60,29 +61,190 @@ function updateSlideNavigationButtons() {
 // ─── Desktop Connection Status ────────────────────────────────────────────────
 
 function setConnectionStatus(message, color, isConnected) {
-  const statusDisplay = document.getElementById('connection-status-display');
-  const statusText    = document.getElementById('connection-status-text');
-  const sendBtn       = document.getElementById('send-notes-btn');
+  const statusIndicator = document.getElementById('connection-status-inline');
+  const sendBtn = document.getElementById('send-notes-btn');
   const qrModalStatus = document.getElementById('connection-status');
 
-  if (statusDisplay && statusText) {
-    statusText.textContent       = message;
-    statusDisplay.style.background = color;
-    statusDisplay.style.display  = 'block';
+  if (statusIndicator) {
+    statusIndicator.textContent = message;
+    statusIndicator.className = isConnected ? 'status-indicator connected' : 'status-indicator';
   }
 
   if (qrModalStatus) {
-    qrModalStatus.textContent  = message;
-    qrModalStatus.style.color  = isConnected ? 'green' : '#333';
+    qrModalStatus.textContent = message;
+    qrModalStatus.style.color = isConnected ? 'green' : '#333';
   }
 
   if (sendBtn) {
-    sendBtn.disabled      = !isConnected;
-    sendBtn.style.opacity = isConnected ? '1' : '0.5';
-    sendBtn.title         = isConnected ? 'Send notes to phone' : 'Phone not connected';
+    sendBtn.disabled = !isConnected;
+    sendBtn.title = isConnected ? 'Send notes to phone' : 'Phone not connected';
+  }
+
+  // Update persistent badge in header
+  const badge = document.getElementById('phone-status-badge');
+  const label = document.getElementById('phone-status-label');
+  if (badge && label) {
+    const isConnecting = !isConnected && message.includes('Connecting');
+    badge.className = 'phone-status-badge' + (isConnected ? ' connected' : isConnecting ? ' connecting' : '');
+    label.textContent = isConnected ? 'Connected' : isConnecting ? 'Connecting…' : 'No phone';
+  }
+
+  // Enable step 3 when phone is connected
+  if (isConnected) {
+    // Auto-close the QR modal when phone connects
+    const qrOverlay = document.getElementById('qr-overlay');
+    if (qrOverlay) qrOverlay.classList.add('hidden');
+
+    maxStepReached = Math.max(maxStepReached, 3);
+    if (currentStep < 3) {
+      nextStep();
+    } else {
+      updateNavigationButtons();
+    }
   }
 
   console.log('[DESKTOP] Status:', message);
+}
+
+// ─── Step Management ──────────────────────────────────────────────────────────
+
+let currentStep = 1;
+let maxStepReached = 1; // Track the highest step the user has reached
+
+function showStep(stepNumber) {
+  // Hide all steps
+  for (let i = 1; i <= 3; i++) {
+    const step = document.getElementById(`step-${i}`);
+    if (step) {
+      step.classList.add('hidden');
+    }
+  }
+
+  // Show current step
+  const targetStep = document.getElementById(`step-${stepNumber}`);
+  if (targetStep) {
+    targetStep.classList.remove('hidden');
+    currentStep = stepNumber;
+
+    // Update step dots visual state
+    updateStepDots();
+
+    // Update navigation buttons
+    updateNavigationButtons();
+  }
+}
+
+function updateStepDots() {
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    if (dot) {
+      dot.classList.remove('active', 'available');
+
+      if (i === currentStep) {
+        dot.classList.add('active');
+      } else if (i <= maxStepReached) {
+        dot.classList.add('available');
+      }
+    }
+  }
+}
+
+function updateNavigationButtons() {
+  const prevBtn = document.getElementById('prev-step-btn');
+  const nextBtn = document.getElementById('next-step-btn');
+
+  if (prevBtn) {
+    prevBtn.disabled = currentStep <= 1;
+  }
+
+  if (nextBtn) {
+    // Can skip forward if not on the last step and has reached beyond current step
+    nextBtn.disabled = currentStep >= 3 || currentStep >= maxStepReached;
+    nextBtn.textContent = currentStep === 3 ? 'Done' : 'Skip →';
+  }
+}
+
+function nextStep() {
+  if (currentStep < 3) {
+    const nextStepNumber = currentStep + 1;
+    maxStepReached = Math.max(maxStepReached, nextStepNumber);
+    showStep(nextStepNumber);
+  }
+}
+
+function prevStep() {
+  if (currentStep > 1) {
+    showStep(currentStep - 1);
+  }
+}
+
+function gotoStep(stepNumber) {
+  // Only allow going to steps that have been unlocked
+  if (stepNumber >= 1 && stepNumber <= maxStepReached) {
+    showStep(stepNumber);
+  }
+}
+
+function enableStep(stepNumber) {
+  // In the new design, "enabling" means making it accessible and progressing to it
+  if (stepNumber > maxStepReached) {
+    maxStepReached = stepNumber;
+    showStep(stepNumber);
+  }
+}
+
+function disableStep(stepNumber) {
+  // If we're on this step and it becomes unavailable, go back to a previous step
+  if (stepNumber === currentStep && stepNumber > 1) {
+    // Don't reduce maxStepReached, just go back
+    showStep(Math.min(currentStep - 1, maxStepReached));
+  }
+}
+
+function startPresentation() {
+  const setupFlow = document.getElementById('setup-flow');
+  const menuToggleBtn = document.getElementById('menu-toggle-btn');
+
+  if (setupFlow) {
+    setupFlow.style.display = 'none';
+  }
+
+  // Show toggle button when setup is hidden
+  if (menuToggleBtn) {
+    menuToggleBtn.classList.remove('hidden');
+  }
+
+  // Adjust reveal container to full screen
+  const revealContainer = document.querySelector('.reveal-container');
+  if (revealContainer) {
+    revealContainer.style.top = '0';
+    revealContainer.style.height = '100%';
+  }
+
+  console.log('[DESKTOP] Presentation started - setup flow hidden');
+}
+
+function showSetupMenu() {
+  const setupFlow = document.getElementById('setup-flow');
+  const menuToggleBtn = document.getElementById('menu-toggle-btn');
+
+  if (setupFlow) {
+    setupFlow.style.display = 'block';
+  }
+
+  // Hide toggle button when setup is visible
+  if (menuToggleBtn) {
+    menuToggleBtn.classList.add('hidden');
+  }
+
+  // Adjust reveal container back to account for setup
+  const revealContainer = document.querySelector('.reveal-container');
+  if (revealContainer) {
+    revealContainer.style.top = '140px';
+    revealContainer.style.height = 'calc(100% - 140px)';
+  }
+
+  console.log('[DESKTOP] Setup menu shown - toggle button hidden');
 }
 
 function sendAllNotesToPhone() {
@@ -130,8 +292,9 @@ export function setupDataChannel(channel) {
     state.dataChannelReady = true;
     if (!isMobile()) {
       setConnectionStatus('✅ Phone Connected — ready to send notes', 'rgba(0, 180, 0, 0.8)', true);
-      sendSlideCountToPhone();
-      sendSlideNotesToPhone(0);
+
+      // Sync all current slide data with the newly connected phone
+      syncAllSlidesToPhone();
     }
   };
 
@@ -144,7 +307,6 @@ export function setupDataChannel(channel) {
   channel.onclose = () => {
     console.log(deviceType, 'Data Channel CLOSED');
     state.dataChannelReady = false;
-    if (!isMobile()) setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
   };
 
   channel.onmessage = (event) => {
@@ -206,6 +368,12 @@ function _handleMessage(msg) {
       }
       break;
 
+    case 'timer-warning':
+      if (!isMobile()) {
+        showDesktopWarning(msg.message, msg.isUrgent);
+      }
+      break;
+
     case 'gyroscope-slide':
       if (!isMobile()) {
         if (msg.direction === 'next') {
@@ -239,12 +407,6 @@ export async function setupDesktop() {
   let offerSent = false;
 
   // ── Event handlers ─────────────────────────────────────────────────────────
-  function toggleUploadOverlay() {
-    document.getElementById('upload-overlay').classList.toggle('hidden');
-  }
-  function closeUploadOverlay() {
-    document.getElementById('upload-overlay').classList.add('hidden');
-  }
   function openQROverlay() {
     renderQRCode(data.url);
     document.getElementById('qr-overlay').classList.remove('hidden');
@@ -252,26 +414,40 @@ export async function setupDesktop() {
   function closeQROverlay() {
     document.getElementById('qr-overlay').classList.add('hidden');
   }
-  function onUploadFileClick() {
+  function onFileChange(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
     const fileInput = document.getElementById('file-upload');
-    if (fileInput.files.length === 0) { alert('Please select a file first'); return; }
-    const file   = fileInput.files[0];
+    fileInput.disabled = true;
+
     const reader = new FileReader();
+
     reader.onload = async (e) => {
       try {
         if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
           const pdfSlides = await extractTextFromPDF(e.target.result);
           loadPDFSlides(pdfSlides, file.name);
-          console.log('PDF loaded with', pdfSlides.length, 'pages');
         } else {
           loadSlides(e.target.result, file.name);
-          console.log('Slides loaded from file:', file.name);
+        }
+
+        // Enable step 2 once slides are loaded and update navigation
+        maxStepReached = Math.max(maxStepReached, 2);
+        if (currentStep === 1) {
+          nextStep();
+        } else {
+          updateNavigationButtons();
         }
       } catch (error) {
         alert('Error processing file: ' + error.message);
+      } finally {
+        fileInput.disabled = false;
       }
     };
+
     reader.onerror = () => alert('Error reading file');
+
     if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
       reader.readAsArrayBuffer(file);
     } else {
@@ -288,21 +464,14 @@ export async function setupDesktop() {
       state.dataChannel.send(JSON.stringify({ type: 'slide-change', slideIndex }));
     }
   }
-  function onPhoneLeft() {
-    console.log('[DESKTOP] Phone left!');
-    state.dataChannelReady = false;
-    offerSent = false; // Allow re-offer on reconnect
-    setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
-  }
   async function onAnswer(answer) {
     try {
-      if (state.peerConnection.signalingState !== 'have-local-offer') {
-        console.warn('[DESKTOP] Ignoring duplicate answer — signalingState:', state.peerConnection.signalingState);
+      if (!state.peerConnection || state.peerConnection.signalingState !== 'have-local-offer') {
+        console.warn('[DESKTOP] Ignoring answer, state:', state.peerConnection?.signalingState);
         return;
       }
-      console.log('[DESKTOP] Received answer from phone');
       await state.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-      console.log('[DESKTOP] Remote description set — WebRTC handshake complete');
+      console.log('[DESKTOP] Remote description set — handshake complete');
     } catch (error) {
       console.error('[DESKTOP] Error handling answer:', error);
     }
@@ -310,13 +479,19 @@ export async function setupDesktop() {
 
   // ── Bind all UI event listeners ────────────────────────────────────────────
   addListeners({
-    'toggle-overlay-btn': ['click',  toggleUploadOverlay],
-    'close-overlay-btn':  ['click',  closeUploadOverlay],
     'show-qr-btn':        ['click',  openQROverlay],
     'close-qr-btn':       ['click',  closeQROverlay],
-    'upload-file-btn':    ['click',  onUploadFileClick],
+    'file-upload':        ['change', onFileChange],
     'note-slide-select':  ['change', updateNoteEditorForSlide],
     'send-notes-btn':     ['click',  saveAndSendCurrentNote],
+    'start-presentation-btn': ['click', startPresentation],
+    'menu-toggle-btn':    ['click',  showSetupMenu],
+    'close-setup-btn':    ['click',  startPresentation], // Same as start presentation
+    'prev-step-btn':      ['click',  prevStep],
+    'next-step-btn':      ['click',  nextStep],
+    'dot-1':             ['click',  () => gotoStep(1)],
+    'dot-2':             ['click',  () => gotoStep(2)],
+    'dot-3':             ['click',  () => gotoStep(3)],
   });
 
   // ── Reveal.js presentation ─────────────────────────────────────────────────
@@ -328,44 +503,81 @@ export async function setupDesktop() {
   });
   state.Reveal_Instance.initialize().then(() => {
     state.Reveal_Instance.on('slidechanged', onSlideChanged);
+
+    // Load default demo slides to show users what the tool does
+    loadDefaultSlides();
+
+    // Since we have default slides, user can access step 2
+    maxStepReached = 2;
+    updateNavigationButtons();
+
+    console.log('[DESKTOP] Default demo slides loaded');
   });
 
   // ── WebRTC peer connection ─────────────────────────────────────────────────
-  state.peerConnection = new RTCPeerConnection(webrtcConfig);
-  console.log('[DESKTOP] RTCPeerConnection created');
-
-
-  _setupPeerConnectionLogging(state.peerConnection, '[DESKTOP]');
+  let offer;
 
   function onIceCandidateDesktop(event) {
     if (event.candidate) {
-      console.log('[DESKTOP] Sending ICE candidate');
       state.socket.emit('candidate', event.candidate);
     }
   }
-  state.peerConnection.onicecandidate = onIceCandidateDesktop;
 
-  state.dataChannel = state.peerConnection.createDataChannel('controls');
-  console.log('[DESKTOP] Data channel created, state:', state.dataChannel.readyState);
-  setupDataChannel(state.dataChannel);
+  async function prepareOffer() {
+    // Clean up any old connection
+    if (state.peerConnection) {
+      state.peerConnection.close();
+    }
+
+    state.peerConnection = new RTCPeerConnection(webrtcConfig);
+    _setupPeerConnectionLogging(state.peerConnection, '[DESKTOP]');
+    state.peerConnection.onicecandidate = onIceCandidateDesktop;
+
+    state.dataChannel = state.peerConnection.createDataChannel('controls');
+    setupDataChannel(state.dataChannel);
+
+    offer = await state.peerConnection.createOffer();
+    await state.peerConnection.setLocalDescription(offer);
+    console.log('[DESKTOP] Offer prepared');
+  }
+
+  // Prepare the first offer
+  await prepareOffer();
   setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
 
-  const offer = await state.peerConnection.createOffer();
-  await state.peerConnection.setLocalDescription(offer);
-  console.log('[DESKTOP] Offer ready, waiting for phone...');
-
-  const sendOffer = (reason) => {
-    if (offerSent) { console.log('[DESKTOP] Offer already sent, ignoring:', reason); return; }
+  // Simple guard: only send the offer once per connection cycle
+  const sendOffer = () => {
+    if (offerSent) return;
     offerSent = true;
-    console.log('[DESKTOP] Sending offer to phone (trigger:', reason, ')');
-    setConnectionStatus('⏳ Phone on page, establishing connection...', 'rgba(255, 165, 0, 0.8)', false);
+    console.log('[DESKTOP] Sending offer to phone');
+    setConnectionStatus('⏳ Connecting to phone...', 'rgba(255, 165, 0, 0.8)', false);
     state.socket.emit('offer', offer);
   };
 
-  state.socket.on('phone-joined', () => sendOffer('phone-joined'));
-  state.socket.on('phone-ready',  () => sendOffer('phone-ready'));
-  state.socket.on('phone-left', onPhoneLeft);
+  state.socket.on('phone-joined', sendOffer);
+  state.socket.on('phone-ready', sendOffer);
+
+  // When phone leaves: clean up and prepare a fresh offer for next connection
+  state.socket.on('phone-left', async () => {
+    console.log('[DESKTOP] Phone left, preparing for reconnection');
+    setConnectionStatus('❌ Phone Disconnected', 'rgba(255, 0, 0, 0.8)', false);
+    disableStep(3);
+    offerSent = false;
+    await prepareOffer();
+    setConnectionStatus('📡 Waiting for phone...', 'rgba(255, 165, 0, 0.8)', false);
+  });
+
   state.socket.on('answer', onAnswer);
+
+  state.socket.on('candidate', async (candidate) => {
+    try {
+      if (state.peerConnection && state.peerConnection.remoteDescription) {
+        await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    } catch (e) {
+      console.error('[DESKTOP] Error adding ICE candidate:', e);
+    }
+  });
 }
 
 // ─── Mobile Setup ─────────────────────────────────────────────────────────────
@@ -409,13 +621,22 @@ export async function setupMobile() {
     }
   }
   async function onOffer(offer) {
+    if (processingOffer) return;
+    processingOffer = true;
+
     try {
-      if (processingOffer || state.peerConnection.signalingState !== 'stable') {
-        console.warn('[PHONE] Ignoring duplicate offer — processingOffer:', processingOffer, 'signalingState:', state.peerConnection.signalingState);
-        return;
-      }
-      processingOffer = true;
       console.log('[PHONE] Received offer from desktop');
+
+      // Always create a fresh peer connection for each offer
+      if (state.peerConnection) {
+        state.peerConnection.close();
+      }
+
+      state.peerConnection = new RTCPeerConnection(webrtcConfig);
+      _setupPeerConnectionLogging(state.peerConnection, '[PHONE]');
+      state.peerConnection.ondatachannel = onDataChannel;
+      state.peerConnection.onicecandidate = onIceCandidatePhone;
+
       await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
@@ -439,12 +660,6 @@ export async function setupMobile() {
   });
 
   // ── WebRTC peer connection ─────────────────────────────────────────────────
-  state.peerConnection = new RTCPeerConnection(webrtcConfig);
-  console.log('[PHONE] RTCPeerConnection created');
-
-  _setupPeerConnectionLogging(state.peerConnection, '[PHONE]');
-  state.peerConnection.onerror = (err) => console.error('[PHONE] RTCPeerConnection error:', err);
-
   function onDataChannel(event) {
     console.log('[PHONE] Data channel received:', event.channel.label);
     state.dataChannel = event.channel;
@@ -452,14 +667,30 @@ export async function setupMobile() {
   }
   function onIceCandidatePhone(event) {
     if (event.candidate) {
-      console.log('[PHONE] Sending ICE candidate');
       state.socket.emit('candidate', event.candidate);
     }
   }
-  state.peerConnection.ondatachannel  = onDataChannel;
+
+  // Initial peer connection (will be replaced by onOffer on each connection)
+  state.peerConnection = new RTCPeerConnection(webrtcConfig);
+  state.peerConnection.ondatachannel = onDataChannel;
   state.peerConnection.onicecandidate = onIceCandidatePhone;
 
   state.socket.on('offer', onOffer);
+
+  // Handle ICE candidates from desktop
+  state.socket.on('candidate', async (candidate) => {
+    try {
+      if (state.peerConnection && state.peerConnection.remoteDescription) {
+        await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('[PHONE] Added ICE candidate from desktop');
+      } else {
+        console.log('[PHONE] Received ICE candidate but no remote description yet');
+      }
+    } catch (error) {
+      console.error('[PHONE] Error adding ICE candidate:', error);
+    }
+  });
 
   // Setup gyroscope control for slide navigation
   setupGyroscopeControl();
@@ -467,9 +698,27 @@ export async function setupMobile() {
   // Setup laser pointer touch pad
   setupLaserPointer();
 
+  // Setup timer settings and warnings
+  setupTimerSettings();
+
+  // Initialize buzz audio for mobile alerts
+  initializeBuzzAudio();
+
   // Signal desktop that phone is ready (slight delay to ensure socket is registered)
   setTimeout(() => {
     console.log('[PHONE] Emitting phone-ready signal to desktop');
     state.socket.emit('phone-ready');
   }, 500);
+
+  state.socket.on('phone-rejected', () => {
+    console.log('[PHONE] Connection rejected — session already in use');
+    document.getElementById('mobile').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;text-align:center;">
+        <div style="font-size:48px;margin-bottom:20px;">🔒</div>
+        <h2 style="color:#ffd700;margin-bottom:12px;">Session In Use</h2>
+        <p style="color:rgba(255,255,255,0.8);font-size:16px;line-height:1.5;">
+          Another phone is already connected to this presentation.
+        </p>
+      </div>`;
+  });
 }
