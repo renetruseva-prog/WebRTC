@@ -14,7 +14,12 @@ export const state = {
   timerState: {
     isRunning: false,
     elapsedSeconds: 0,
-    intervalId: null
+    intervalId: null,
+    presentationDurationMinutes: 30, // Default 30-minute presentation
+    warningOffset1: 60, // First warning at 60 seconds before end
+    warningOffset2: 30, // Second warning at 30 seconds before end
+    warningTriggered1: false,
+    warningTriggered2: false
   }
 };
 

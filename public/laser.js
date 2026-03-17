@@ -24,7 +24,7 @@ export function drawLaserDot(normX, normY) {
 
   const x = normX * canvas.width;
   const y = normY * canvas.height;
-  const r = Math.max(canvas.width, canvas.height) * 0.008; // ~1.8% of screen
+  const r = Math.max(canvas.width, canvas.height) * 0.008;
 
   // Outer glow
   const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 2.5);

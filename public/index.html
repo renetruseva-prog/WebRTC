@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>WebRTC Chat</title>
+  <title>WebRTC Chat - Desktop</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -10,29 +10,67 @@
 <body>
 
   <div id="desktop">
-    <!-- Upload Controls (Hidden by default) -->
-    <div class="upload-overlay hidden" id="upload-overlay">
-      <div class="upload-overlay-header">
-        <h2>📋 Presentation Controls</h2>
-        <button class="close-overlay-btn" id="close-overlay-btn" title="Close panel">✕</button>
+    <!-- Linear Setup Flow - Always Visible -->
+    <div class="setup-flow" id="setup-flow">
+      <div class="setup-header">
+        <h2>🎯 Presentation Setup</h2>
+        <div class="step-progress-right">
+          <div class="step-dots">
+            <span class="step-dot active" id="dot-1" title="Step 1">1</span>
+            <span class="step-dot" id="dot-2" title="Step 2">2</span>
+            <span class="step-dot" id="dot-3" title="Step 3">3</span>
+          </div>
+          <div class="phone-status-badge" id="phone-status-badge">
+            <span class="phone-status-dot"></span>
+            <span class="phone-status-label" id="phone-status-label">No phone</span>
+          </div>
+          <button class="close-setup-btn" id="close-setup-btn" title="Hide setup menu">✕</button>
+        </div>
+        <div class="step-navigation">
+          <button class="nav-btn" id="prev-step-btn" disabled title="Previous step">← Back</button>
+          <button class="nav-btn" id="next-step-btn" disabled title="Next step">Skip →</button>
+        </div>
       </div>
 
-      <button class="upload-btn" id="show-qr-btn" style="background: #5555ff; margin-bottom: 12px; width: 100%;">📱 Show QR to connect phone</button>
-
-      <div style="margin-bottom: 12px;">
-        <label style="font-weight: bold; font-size: 13px;">📁 Load Slides:</label>
-        <input type="file" id="file-upload" class="upload-input" accept=".md,.markdown,.txt,.pdf" style="display: block; margin: 8px 0;" />
-        <button class="upload-btn" id="upload-file-btn">Upload File</button>
+      <!-- Step 1: Load Presentation -->
+      <div class="current-step" id="step-1">
+        <div class="step-content">
+          <h3>📁 Load Your Slides</h3>
+          <p class="step-description">Upload a markdown or PDF file, or use the demo slides already loaded</p>
+          <div class="file-upload-area">
+            <input type="file" id="file-upload" accept=".md,.markdown,.txt,.pdf" />
+          </div>
+        </div>
       </div>
 
-      <!-- Notes Editor Section -->
-      <div style="border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;">
-        <label style="font-weight: bold; font-size: 13px;">📝 Speaker Notes:</label>
-        <select id="note-slide-select" class="upload-input" style="width: 100%; padding: 8px; margin-top: 6px;">
-          <option>Select a slide...</option>
-        </select>
-        <textarea id="note-editor" class="upload-input" placeholder="Write speaker notes for this slide..." rows="4" style="margin-top: 6px; margin-bottom: 6px;"></textarea>
-        <button class="upload-btn" id="send-notes-btn" style="width: 100%; background: #55aa55;">Send to Phone</button>
+      <!-- Step 2: Connect Phone (hidden initially) -->
+      <div class="current-step hidden" id="step-2">
+        <div class="step-content">
+          <h3>📱 Connect Your Phone</h3>
+          <p class="step-description">Scan the QR code with your phone to use it as a presenter remote</p>
+          <button class="primary-btn" id="show-qr-btn">Show QR Code to Connect</button>
+          <div id="connection-status-inline" class="status-indicator">
+            📡 Waiting for phone connection...
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Add Speaker Notes (hidden initially) -->
+      <div class="current-step hidden" id="step-3">
+        <div class="step-content">
+          <h3>📝 Add Speaker Notes (Optional)</h3>
+          <p class="step-description">Add notes for each slide that will appear on your phone</p>
+          <div class="notes-section">
+            <select id="note-slide-select" class="step-select">
+              <option>Select a slide...</option>
+            </select>
+            <textarea id="note-editor" placeholder="Add notes for this slide..." rows="3"></textarea>
+            <div class="step-actions">
+              <button class="secondary-btn" id="send-notes-btn" disabled>Send Notes to Phone</button>
+              <button class="primary-btn" id="start-presentation-btn">Start Presentation</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -41,9 +79,8 @@
       <div class="reveal">
         <div class="slides" id="slides-container">
           <section>
-            <h2>WebRTC Presenter</h2>
-            <p>Upload a markdown file or paste slides above to begin</p>
-            <p style="font-size: 18px; margin-top: 40px; opacity: 0.7;">Use <code>---</code> to separate slides</p>
+            <h2>Loading Demo Slides...</h2>
+            <p>Interactive demo slides will load automatically</p>
           </section>
         </div>
       </div>
@@ -51,24 +88,28 @@
       <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
         <span id="desktop-timer-display">Timer: 00:00</span>
       </div>
-      <!-- Connection Status Display -->
-      <div id="connection-status-display" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none;">
-        <span id="connection-status-text">📡 Waiting for phone...</span>
-      </div>
       <!-- Laser pointer canvas — sits over slides, pointer-events: none so clicks pass through -->
       <canvas id="laser-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
     </div>
 
-    <!-- Toggle Button for Upload Panel -->
-    <button class="toggle-overlay-btn" id="toggle-overlay-btn" title="Open presentation controls">☰</button>
+    <!-- Toggle Button for Setup Menu (shows when setup is hidden) -->
+    <button class="menu-toggle-btn hidden" id="menu-toggle-btn" title="Show presentation controls">⚙️</button>
 
-    <!-- QR Code Modal -->
+    <!-- Simplified QR Code Modal -->
     <div id="qr-overlay" class="qr-overlay hidden">
       <div class="qr-modal">
-        <h3>Scan to Connect Phone</h3>
+        <h3>📱 Scan to Connect Your Phone</h3>
         <div id="qr"></div>
         <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
-        <button class="close-qr" id="close-qr-btn">Close</button>
+        <button class="secondary-btn" id="close-qr-btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Desktop Timer Warning Popup -->
+    <div id="desktop-warning-popup" class="desktop-warning-popup hidden">
+      <div class="warning-popup-content">
+        <div class="warning-popup-icon">⚠️</div>
+        <div class="warning-popup-text" id="desktop-warning-text">Warning message</div>
       </div>
     </div>
   </div>
@@ -82,19 +123,26 @@
       📱 Enable Gyroscope Control
     </button>
 
-    <!-- Gyroscope tilt indicator -->
-    <div id="gyro-indicator" style="margin: 8px 16px; padding: 8px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 13px; font-family: monospace; display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span>Tilt (γ):</span>
-        <span id="gyro-gamma">0°</span>
-        <span id="gyro-status" style="font-size: 11px; opacity: 0.7;">neutral</span>
+    <!-- Gyroscope Status and Control -->
+    <div id="gyro-section" style="margin: 8px 16px; display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 14px; font-weight: bold;">🔄 Gyroscope Control</span>
+        <button id="gyro-disable-btn" style="padding: 4px 12px; background: #f44336; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          Disable
+        </button>
       </div>
-      <div style="margin-top: 6px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; position: relative;">
-        <div id="gyro-bar" style="position: absolute; top: 0; height: 100%; width: 4px; background: #4CAF50; border-radius: 2px; left: 50%; transform: translateX(-50%); transition: left 0.05s;"></div>
-        <div style="position: absolute; left: calc(50% - 20%); top: -2px; width: 2px; height: 10px; background: rgba(255,100,100,0.6);"></div>
-        <div style="position: absolute; left: calc(50% + 20%); top: -2px; width: 2px; height: 10px; background: rgba(255,100,100,0.6);"></div>
+      <div id="gyro-feedback" style="background: rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; text-align: center;">
+        <div id="direction-indicator" style="font-size: 24px; margin-bottom: 8px;">📱</div>
+        <div id="direction-text" style="font-size: 13px; opacity: 0.8;">Tilt left or right to navigate slides</div>
       </div>
-      <div id="gyro-last-action" style="margin-top: 4px; font-size: 11px; opacity: 0.8; text-align: center;">&nbsp;</div>
+    </div>
+
+    <!-- Laser Pointer Section -->
+    <div style="margin: 8px 16px 4px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px;">
+      <button id="laser-toggle-btn" style="width: 100%; padding: 10px; background: #177b0e; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; margin-bottom: 8px;">🔴 Activate laser</button>
+      <div id="laser-pad" style="display: none; width: 100%; aspect-ratio: 16/9; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; touch-action: none; position: relative;">
+        <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0.4; pointer-events: none;">Touch to aim laser</span>
+      </div>
     </div>
 
     <div class="presenter-container">
@@ -114,20 +162,50 @@
       <!-- Timer Section -->
       <div class="timer-container">
         <div class="timer-label">⏱️ Presentation Timer</div>
+
+        <!-- Presentation Duration Settings -->
+        <div class="timer-settings" id="timer-settings">
+          <div class="setting-row">
+            <label for="duration-input">Duration (minutes):</label>
+            <input type="number" id="duration-input" min="1" max="180" value="30" style="width: 60px; padding: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; border-radius: 4px;">
+          </div>
+          <div class="setting-row">
+            <label for="warning1-input">First warning (seconds left):</label>
+            <input type="number" id="warning1-input" min="10" max="600" value="60" placeholder="60" style="width: 80px; padding: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; border-radius: 4px;">
+          </div>
+          <div class="setting-row">
+            <label for="warning2-input">Final warning (seconds left):</label>
+            <input type="number" id="warning2-input" min="5" max="300" value="30" placeholder="30" style="width: 80px; padding: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; border-radius: 4px;">
+          </div>
+          <div class="setting-hint" style="font-size: 11px; opacity: 0.6; margin-top: 6px; text-align: center;">
+            💡 Set custom warning times before your presentation ends
+          </div>
+
+          <!-- Test Alert Button -->
+          <div style="margin-top: 10px; text-align: center;">
+            <button id="test-alert-btn" style="padding: 8px 16px; background: rgba(255, 193, 7, 0.8); color: #333; border: none; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">
+              🔔 Test Buzz & Vibration
+            </button>
+          </div>
+        </div>
+
         <div class="timer-display" id="timer-display">Timer: 00:00</div>
+        <div class="timer-progress" id="timer-progress-bar" style="display: none;">
+          <div class="progress-fill" id="progress-fill"></div>
+          <div class="time-remaining" id="time-remaining"></div>
+        </div>
+
         <div class="timer-controls">
           <button class="timer-btn" id="timer-start">Start</button>
           <button class="timer-btn" id="timer-pause" style="display: none;">Pause</button>
           <button class="timer-btn" id="timer-resume" style="display: none;">Resume</button>
           <button class="timer-btn" id="timer-reset">Reset</button>
         </div>
-      </div>
 
-      <!-- Laser Pointer Section -->
-      <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px;">
-        <button id="laser-toggle-btn" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; margin-bottom: 8px;">🔴 Laser</button>
-        <div id="laser-pad" style="display: none; width: 100%; aspect-ratio: 16/9; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; touch-action: none; position: relative;">
-          <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0.4; pointer-events: none;">Touch to aim laser</span>
+        <!-- Warning Alert Area -->
+        <div class="timer-warning" id="timer-warning" style="display: none;">
+          <div class="warning-icon">⚠️</div>
+          <div class="warning-text" id="warning-text"></div>
         </div>
       </div>
     </div>
