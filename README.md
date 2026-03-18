@@ -1159,5 +1159,256 @@ Through Phases 20-22, AI handled the heavy reconnection architecture, while I im
 
 ---
 
-*To-do (left):
-- add camera (in a feature branch!)
+**To-do (what's left):** 
+- camera
+- session enforcement 
+
+---
+
+### WEEK 4 
+
+**Session: Camera Streaming & Session Enforcement** (2026-03-18)
+
+---
+
+#### Phase 24 — Real-Time Phone Camera Streaming
+
+---
+
+##### 24a — Planning the camera feature
+
+**Feature I wanted to add:** Presenters sometimes need to show something physical with their hands (assembly, hardware, materials). The phone camera should stream live video onto the desktop as a small picture-in-picture in the bottom-right corner of the slides.
+
+**Decisions I made upfront:** One-way video only (phone → desktop), optional/toggle-able camera state, and non-obstructive positioning over slides.
+
+**Architecture process:** I initiated the feature scope and constraints, then used AI to validate implementation details against the existing module structure (`webrtc.js`, `laser.js`, `gyroscope.js`). I approved the final design: dedicated `camera.js`, `cameraState` in shared state, and WebRTC media tracks (not data channel payloads).
+
+---
+
+##### 24b — Initial implementation across 6 files
+
+**What I implemented directly:**
+- Added and positioned the camera toggle control in `index.html` near the laser controls (interaction flow decision + UI placement)
+- Integrated camera state shape into app state conventions in `state.js`
+- Added desktop receiver surface (`#remote-video`) in `index-desktop.html`
+- Implemented and tuned overlay styling in `style.css` (fixed bottom-right 16:9 PiP, hidden by default, layered above slides)
+- Wired camera setup into the mobile startup path in `webrtc.js`
+
+**AI support:** Generated the initial `camera.js` baseline and error-handling skeleton, which I integrated and tested in the app loop.
+
+```javascript
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+  audio: false
+});
+const videoTrack = stream.getVideoTracks()[0]; 
+state.peerConnection.addTrack(videoTrack, stream);
+```
+
+```javascript
+cameraState: {
+  enabled: false,
+  stream: null,
+  videoTrack: null,
+  hasPermission: false,
+  supportsFrontCamera: true
+}
+```
+
+```html
+<video id="remote-video" autoplay playsinline muted></video>
+```
+
+```css
+#remote-video {
+  position: absolute;
+  bottom: 20px; right: 20px;
+  width: 200px; height: 112px; /* 16:9 */
+  display: none;
+  z-index: 20;
+}
+```
+
+---
+
+##### 24c — Fix: camera enabled on phone, nothing rendered on desktop
+
+**Problem I identified:** Tapping "Enable Camera" worked on phone (permission + UI state changed), but no desktop render appeared.
+
+**Root cause analysis:** During debugging I confirmed the initial SDP had only `m=application` (data channel) and no `m=video`, so late-added tracks had no negotiated media section.
+
+**What I implemented (with AI confirmation):** Added a pre-negotiated receive-only video transceiver in desktop offer setup:
+
+```javascript
+state.peerConnection.addTransceiver('video', { direction: 'recvonly' });
+offer = await state.peerConnection.createOffer();
+```
+
+---
+
+##### 24d — Fix: camera still not rendering after transceiver addition
+
+**Problem I identified:** Even after adding `m=video`, the stream still did not appear.
+
+**Root cause (joint debugging):** Adding a track on the phone triggered `onnegotiationneeded`, but no renegotiation signaling path was completing.
+
+**What I implemented across signaling + client handlers:**
+
+`index.js` — relay channels for renegotiation:
+
+```javascript
+socket.on('renegotiate', (data) => socket.broadcast.emit('renegotiate', data));
+socket.on('renegotiate-answer', (data) => socket.broadcast.emit('renegotiate-answer', data));
+```
+
+`webrtc.js` — phone renegotiation offer path:
+
+```javascript
+state.peerConnection.onnegotiationneeded = async () => {
+  if (state.peerConnection.signalingState !== 'stable') return;
+  const reoffer = await state.peerConnection.createOffer();
+  await state.peerConnection.setLocalDescription(reoffer);
+  state.socket.emit('renegotiate', reoffer);
+};
+```
+
+`webrtc.js` — desktop renegotiation answer path:
+
+```javascript
+state.socket.on('renegotiate', async (offer) => {
+  await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await state.peerConnection.createAnswer();
+  await state.peerConnection.setLocalDescription(answer);
+  state.socket.emit('renegotiate-answer', answer);
+});
+```
+
+I also used targeted logging to validate each renegotiation stage end-to-end until the camera rendered reliably.
+
+---
+
+##### 24e — Fix: disabling camera left a frozen frame on desktop
+
+**Problem I identified:** Camera disable stopped capture on phone, but desktop still displayed the last frozen frame.
+
+**What I implemented:** Explicit disable signal over the data channel and desktop-side cleanup handler.
+
+`camera.js`:
+
+```javascript
+if (state.dataChannel && state.dataChannel.readyState === 'open') {
+  state.dataChannel.send(JSON.stringify({ type: 'camera-disabled' }));
+}
+```
+
+`webrtc.js`:
+
+```javascript
+case 'camera-disabled':
+  if (!state.isPhone) {
+    const remoteVideo = document.getElementById('remote-video');
+    if (remoteVideo) {
+      remoteVideo.srcObject = null;
+      remoteVideo.style.display = 'none';
+    }
+  }
+  break;
+```
+
+---
+
+#### Phase 25 — Session Enforcement: Instant Rejection
+
+---
+
+##### 25a — Second phone rendered full UI before rejection
+
+**Problem I identified:** A second scanned phone briefly rendered presenter UI before "Session In Use" appeared.
+
+**Root cause:** Mobile setup work was running before server acceptance was known.
+
+**What I refactored:** I moved the handshake earlier so `phone-ready` is emitted immediately and `setupMobile()` runs only after `phone-accepted`.
+
+`index.js` — accept/reject contract includes explicit acceptance event:
+
+```javascript
+phones.add(socket.id);
+socket.emit('phone-accepted');
+socket.broadcast.emit('phone-joined');
+```
+
+`script-mobile.js` — gated setup by server response:
+
+```javascript
+initSocket(() => {
+  state.socket.emit('phone-ready');
+
+  state.socket.on('phone-rejected', () => {
+    document.body.innerHTML = `<div>🔒 Session In Use...</div>`;
+  });
+
+  state.socket.on('phone-accepted', () => {
+    setupMobile();
+  });
+});
+```
+
+`webrtc.js` — removed the delayed `phone-ready` emission and rejection UI from `setupMobile()` so setup logic stays acceptance-only.
+
+---
+
+##### 25b — Desktop panel still flashed on rejected phone
+
+**Problem I identified:** The desktop panel flashed because initial HTML state showed desktop by default.
+
+**What I changed:** I made the initial mobile page state rejection-safe by defaulting desktop to hidden and showing a connecting placeholder until acceptance/rejection returns.
+
+```html
+<div id="desktop" class="hidden">
+```
+
+```html
+<div id="connecting-overlay" style="...background:#1a1a2e;">
+  <div>📡</div>
+  <p>Connecting…</p>
+</div>
+```
+
+`script-mobile.js` — remove overlay immediately before allowed setup:
+
+```javascript
+state.socket.on('phone-accepted', () => {
+  document.getElementById('connecting-overlay').style.display = 'none';
+  setupMobile();
+});
+```
+
+**Result:** Rejected phone now follows "Connecting…" → "Session In Use" without rendering presenter UI. Accepted phone follows "Connecting…" → full mobile presenter view.
+
+---
+
+#### Week 5 — Critical Reflection on AI Use
+
+This was the most technically demanding feature set so far (camera tracks, SDP media sections, renegotiation timing, and session-gate UX). AI was helpful for fast iteration, but this week included substantial implementation work on my side across HTML/CSS/JS and signaling flow.
+
+**What I contributed (coding + integration):**
+- Defined the camera product constraints and translated them into implementation requirements (one-way, optional, unobtrusive PiP)
+- Implemented camera UI integration: toggle placement in `index.html`, receiver element in desktop markup, and PiP styling behavior
+- Added and maintained camera-related shared state structure in `state.js`
+- Wired camera control setup into the mobile initialization path and verified lifecycle behavior in-device
+- Diagnosed no-render state via runtime behavior and SDP inspection direction (missing negotiated video media section)
+- Implemented the pre-negotiation transceiver change in offer preparation
+- Implemented renegotiation relay/server plumbing and both client-side renegotiation handlers
+- Added and used debug logging checkpoints to verify signaling-state transitions and event ordering
+- Implemented frozen-frame cleanup via `camera-disabled` message and desktop video teardown
+- Refactored session enforcement sequence so setup is acceptance-gated, not connect-gated
+- Implemented rejection-safe initial mobile rendering (`hidden` desktop + connecting overlay flow)
+- Validated all fixes on real device flows: first connect, second-phone reject, camera on/off, and reconnect behavior
+
+**What AI generated/support provided:**
+- Initial `camera.js` baseline (media acquisition + error scaffolding)
+- Guidance on WebRTC media negotiation strategy (`addTransceiver` + renegotiation expectations)
+- Support in shaping the final acceptance/rejection handshake structure across server and client entry points
+
+**Honest assessment:**
+I still relied on AI for some WebRTC-specific protocol details, especially around renegotiation sequencing and signaling-state edge cases. But compared with earlier phases, this session involved significantly more direct implementation by me: wiring multiple files, restructuring control flow, and validating behavior through device-level debugging. The strongest part of my process was turning concrete symptoms into targeted fixes quickly, which made each iteration materially faster and more reliable.
