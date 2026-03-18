@@ -21,6 +21,13 @@ export const state = {
     warningOffset2: 30, // Second warning at 30 seconds before end
     warningTriggered1: false,
     warningTriggered2: false
+  },
+  cameraState: {
+    enabled: false,           // Is camera currently on?
+    stream: null,            // Local MediaStream (for cleanup)
+    videoTrack: null,        // Reference to video track (for pause/resume)
+    hasPermission: false,    // User granted camera permission?
+    supportsFrontCamera: true // Assume true, check on device
   }
 };
 

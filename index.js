@@ -47,6 +47,8 @@ io.on('connection', (socket) => {
   socket.on('offer', (data) => socket.broadcast.emit('offer', data));
   socket.on('answer', (data) => socket.broadcast.emit('answer', data));
   socket.on('candidate', (data) => socket.broadcast.emit('candidate', data));
+  socket.on('renegotiate', (data) => socket.broadcast.emit('renegotiate', data));
+  socket.on('renegotiate-answer', (data) => socket.broadcast.emit('renegotiate-answer', data));
 
   // Track phone connections - phone emits this when it loads
   socket.on('phone-ready', () => {
@@ -57,6 +59,7 @@ io.on('connection', (socket) => {
     }
     console.log(`Phone ready: ${socket.id}`);
     phones.add(socket.id);
+    socket.emit('phone-accepted');
     // Notify desktops that a phone joined
     socket.broadcast.emit('phone-joined');
     // Also relay phone-ready so desktop can send its offer
