@@ -10,6 +10,7 @@ import {
 } from './slides.js';
 import { setupGyroscopeControl } from './gyroscope.js';
 import { setupLaserPointer, clearLaserCanvas, drawLaserDot } from './laser.js';
+import { setupCameraControl } from './camera.js';
 
 // ─── Shared Helpers ──────────────────────────────────────────────────────────
 
@@ -349,6 +350,16 @@ function _handleMessage(msg) {
     case 'laser-clear':
       if (!state.isPhone) clearLaserCanvas();
       break;
+
+    case 'camera-disabled':
+      if (!state.isPhone) {
+        const remoteVideo = document.getElementById('remote-video');
+        if (remoteVideo) {
+          remoteVideo.srcObject = null;
+          remoteVideo.style.display = 'none';
+        }
+      }
+      break;
   }
 }
 
@@ -490,8 +501,31 @@ export async function setupDesktop() {
     _setupPeerConnectionLogging(state.peerConnection, '[DESKTOP]');
     state.peerConnection.onicecandidate = onIceCandidateDesktop;
 
+    // Handle incoming video track from phone
+    state.peerConnection.ontrack = (event) => {
+      console.log('[DESKTOP] ontrack fired!');
+      console.log('[DESKTOP] Track kind:', event.track.kind);
+      console.log('[DESKTOP] Track readyState:', event.track.readyState);
+      console.log('[DESKTOP] Streams:', event.streams.length);
+      if (event.track.kind === 'video') {
+        const remoteVideo = document.getElementById('remote-video');
+        console.log('[DESKTOP] Video element found:', !!remoteVideo);
+        if (remoteVideo) {
+          // Use event.streams[0] or create a new MediaStream from the track
+          const stream = event.streams[0] || new MediaStream([event.track]);
+          remoteVideo.srcObject = stream;
+          remoteVideo.style.display = 'block';
+          console.log('[DESKTOP] Remote video srcObject set, display: block');
+        }
+      }
+    };
+
     state.dataChannel = state.peerConnection.createDataChannel('controls');
     setupDataChannel(state.dataChannel);
+
+    // Pre-negotiate a receive-only video channel so the phone can start
+    // streaming at any time without requiring a second offer/answer round-trip
+    state.peerConnection.addTransceiver('video', { direction: 'recvonly' });
 
     offer = await state.peerConnection.createOffer();
     await state.peerConnection.setLocalDescription(offer);
@@ -520,6 +554,14 @@ export async function setupDesktop() {
     setConnectionStatus('❌ Phone Disconnected', false);
     disableStep(3);
     offerSent = false;
+
+    // Clear remote video feed
+    const remoteVideo = document.getElementById('remote-video');
+    if (remoteVideo) {
+      remoteVideo.srcObject = null;
+      remoteVideo.style.display = 'none';
+    }
+
     await prepareOffer();
     setConnectionStatus('📡 Waiting for phone...', false);
   });
@@ -533,6 +575,22 @@ export async function setupDesktop() {
       }
     } catch (e) {
       console.error('[DESKTOP] Error adding ICE candidate:', e);
+    }
+  });
+
+  // Handle renegotiation offer from phone (e.g. when camera track is added)
+  state.socket.on('renegotiate', async (offer) => {
+    console.log('[DESKTOP] Received renegotiation offer from phone');
+    try {
+      console.log('[DESKTOP] Setting remote description...');
+      await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('[DESKTOP] Creating answer...');
+      const answer = await state.peerConnection.createAnswer();
+      await state.peerConnection.setLocalDescription(answer);
+      state.socket.emit('renegotiate-answer', answer);
+      console.log('[DESKTOP] Renegotiation complete, answer sent');
+    } catch (err) {
+      console.error('[DESKTOP] Renegotiation error:', err);
     }
   });
 }
@@ -592,6 +650,24 @@ export async function setupMobile() {
       state.peerConnection.ondatachannel = onDataChannel;
       state.peerConnection.onicecandidate = onIceCandidatePhone;
 
+      // When a new track is added (e.g. camera), renegotiate with desktop
+      state.peerConnection.onnegotiationneeded = async () => {
+        console.log('[PHONE] onnegotiationneeded fired, signalingState:', state.peerConnection.signalingState);
+        if (state.peerConnection.signalingState !== 'stable') {
+          console.log('[PHONE] Skipping renegotiation - not in stable state');
+          return;
+        }
+        try {
+          console.log('[PHONE] Creating renegotiation offer...');
+          const reoffer = await state.peerConnection.createOffer();
+          await state.peerConnection.setLocalDescription(reoffer);
+          state.socket.emit('renegotiate', reoffer);
+          console.log('[PHONE] Sent renegotiation offer to desktop');
+        } catch (err) {
+          console.error('[PHONE] Renegotiation error:', err);
+        }
+      };
+
       await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
@@ -647,33 +723,31 @@ export async function setupMobile() {
     }
   });
 
+  // Handle renegotiation answer from desktop (e.g. after camera track is added)
+  state.socket.on('renegotiate-answer', async (answer) => {
+    console.log('[PHONE] Received renegotiation answer from desktop');
+    try {
+      if (state.peerConnection) {
+        await state.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('[PHONE] Renegotiation complete - video should be flowing now');
+      }
+    } catch (err) {
+      console.error('[PHONE] Error setting renegotiation answer:', err);
+    }
+  });
+
   // Setup gyroscope control for slide navigation
   setupGyroscopeControl();
 
   // Setup laser pointer touch pad
   setupLaserPointer();
 
+  // Setup camera control for video streaming
+  setupCameraControl();
+
   // Setup timer settings and warnings
   setupTimerSettings();
 
   // Initialize buzz audio for mobile alerts
   initializeBuzzAudio();
-
-  // Signal desktop that phone is ready (slight delay to ensure socket is registered)
-  setTimeout(() => {
-    console.log('[PHONE] Emitting phone-ready signal to desktop');
-    state.socket.emit('phone-ready');
-  }, 500);
-
-  state.socket.on('phone-rejected', () => {
-    console.log('[PHONE] Connection rejected — session already in use');
-    document.getElementById('mobile').innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;text-align:center;">
-        <div style="font-size:48px;margin-bottom:20px;">🔒</div>
-        <h2 style="color:#ffd700;margin-bottom:12px;">Session In Use</h2>
-        <p style="color:rgba(255,255,255,0.8);font-size:16px;line-height:1.5;">
-          Another phone is already connected to this presentation.
-        </p>
-      </div>`;
-  });
 }
