@@ -1,4 +1,5 @@
 // Laser pointer — phone sends normalised touch coords, desktop renders a red dot
+
 import { state } from './state.js';
 
 // ─── Desktop rendering ────────────────────────────────────────────────────────

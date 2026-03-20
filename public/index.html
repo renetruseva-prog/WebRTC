@@ -2,117 +2,12 @@
 <html>
 
 <head>
-  <title>WebRTC Chat - Desktop</title>
+  <title>WebRTC Presenter — Phone</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
-  <div id="desktop" class="hidden">
-    <!-- Linear Setup Flow - Always Visible -->
-    <div class="setup-flow" id="setup-flow">
-      <div class="setup-header">
-        <h2>🎯 Presentation Setup</h2>
-        <div class="step-progress-right">
-          <div class="step-dots">
-            <span class="step-dot active" id="dot-1" title="Step 1">1</span>
-            <span class="step-dot" id="dot-2" title="Step 2">2</span>
-            <span class="step-dot" id="dot-3" title="Step 3">3</span>
-          </div>
-          <div class="phone-status-badge" id="phone-status-badge">
-            <span class="phone-status-dot"></span>
-            <span class="phone-status-label" id="phone-status-label">No phone</span>
-          </div>
-          <button class="close-setup-btn" id="close-setup-btn" title="Hide setup menu">✕</button>
-        </div>
-        <div class="step-navigation">
-          <button class="nav-btn" id="prev-step-btn" disabled title="Previous step">← Back</button>
-          <button class="nav-btn" id="next-step-btn" disabled title="Next step">Skip →</button>
-        </div>
-      </div>
-
-      <!-- Step 1: Load Presentation -->
-      <div class="current-step" id="step-1">
-        <div class="step-content">
-          <h3>📁 Load Your Slides</h3>
-          <p class="step-description">Upload a markdown or PDF file, or use the demo slides already loaded</p>
-          <div class="file-upload-area">
-            <input type="file" id="file-upload" accept=".md,.markdown,.txt,.pdf" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 2: Connect Phone (hidden initially) -->
-      <div class="current-step hidden" id="step-2">
-        <div class="step-content">
-          <h3>📱 Connect Your Phone</h3>
-          <p class="step-description">Scan the QR code with your phone to use it as a presenter remote</p>
-          <button class="primary-btn" id="show-qr-btn">Show QR Code to Connect</button>
-          <div id="connection-status-inline" class="status-indicator">
-            📡 Waiting for phone connection...
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 3: Add Speaker Notes (hidden initially) -->
-      <div class="current-step hidden" id="step-3">
-        <div class="step-content">
-          <h3>📝 Add Speaker Notes (Optional)</h3>
-          <p class="step-description">Add notes for each slide that will appear on your phone</p>
-          <div class="notes-section">
-            <select id="note-slide-select" class="step-select">
-              <option>Select a slide...</option>
-            </select>
-            <textarea id="note-editor" placeholder="Add notes for this slide..." rows="3"></textarea>
-            <div class="step-actions">
-              <button class="secondary-btn" id="send-notes-btn" disabled>Send Notes to Phone</button>
-              <button class="primary-btn" id="start-presentation-btn">Start Presentation</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reveal.js Presentation Container -->
-    <div class="reveal-container">
-      <div class="reveal">
-        <div class="slides" id="slides-container">
-          <section>
-            <h2>Loading Demo Slides...</h2>
-            <p>Interactive demo slides will load automatically</p>
-          </section>
-        </div>
-      </div>
-      <!-- Desktop Timer Display -->
-      <div id="desktop-timer" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px 15px; border-radius: 4px; font-size: 18px; font-weight: bold; font-family: 'Courier New', monospace; display: none;">
-        <span id="desktop-timer-display">Timer: 00:00</span>
-      </div>
-      <!-- Laser pointer canvas — sits over slides, pointer-events: none so clicks pass through -->
-      <canvas id="laser-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
-    </div>
-
-    <!-- Toggle Button for Setup Menu (shows when setup is hidden) -->
-    <button class="menu-toggle-btn hidden" id="menu-toggle-btn" title="Show presentation controls">⚙️</button>
-
-    <!-- Simplified QR Code Modal -->
-    <div id="qr-overlay" class="qr-overlay hidden">
-      <div class="qr-modal">
-        <h3>📱 Scan to Connect Your Phone</h3>
-        <div id="qr"></div>
-        <p id="connection-status" style="color: #333; margin: 10px 0;">Waiting for phone...</p>
-        <button class="secondary-btn" id="close-qr-btn">Close</button>
-      </div>
-    </div>
-
-    <!-- Desktop Timer Warning Popup -->
-    <div id="desktop-warning-popup" class="desktop-warning-popup hidden">
-      <div class="warning-popup-content">
-        <div class="warning-popup-icon">⚠️</div>
-        <div class="warning-popup-text" id="desktop-warning-text">Warning message</div>
-      </div>
-    </div>
-  </div>
 
   <!-- Shown while waiting for server to accept or reject this phone -->
   <div id="connecting-overlay" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:30px;background:#1a1a2e;">

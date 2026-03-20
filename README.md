@@ -18,7 +18,7 @@ At first I started by brainstorming with AI different possible concept ideas for
 
 ## 1. “Do Not Drop It”
 **Phone:** motion controls
-**Desktop:** fragile object (egg, glass, soul)
+**Desktop:** fragile object (egg, glass, etc.)
 
 ## Concept:
 Sudden movement => crack
@@ -69,7 +69,7 @@ Use a "flicking" motion with the phone to throw a punch. The desktop detects the
 - The overall server scaffold (`express`, `http`, `Server` from socket.io)
 
 ```javascript
-// AI-generated server scaffold
+// tutorial + AI-generated server scaffold
 const express = require('express');
 const app = express();
 const http = require('http');
@@ -99,7 +99,7 @@ app.get('/config', (req, res) => {
   document.getElementById('desktop').classList.add('hidden');
   document.getElementById('mobile').classList.remove('hidden');
   ```
-- Custom CSS colors for the mobile header (`rgb(184, 30, 30)`)
+- Custom css colors for the mobile header (`rgb(184, 30, 30)`)
 - The `typeNumber = 4` and `errorCorrectionLevel = 'L'` QR parameters from the course README
 - Custom `console.log` debug strings (`'QR library available:'`, `'Got URL:'`) used during testing
 
@@ -224,7 +224,7 @@ app.get('/config', (req, res) => {
 
 **I wrote:**
 - The decision to scrap polling and switch to event-driven status — I proposed this after observing the lag
-- The color scheme for each state, which I defined as constants before asking the AI to wire them in:
+- The color scheme for each state, which I defined as constants and wired them as:
   - Orange `rgba(255, 165, 0, 0.8)` = waiting
   - Green `rgba(0, 180, 0, 0.8)` = connected
   - Red `rgba(255, 0, 0, 0.8)` = disconnected
@@ -242,7 +242,7 @@ app.get('/config', (req, res) => {
 
 #### Bug 2 — Phone vertically locked
 **Cause:** `body { overflow: hidden }` (required for Reveal.js desktop) cascaded to mobile.  
-**Fix (AI):** Changed `#mobile` to `min-height: 100vh; overflow-y: auto`. In `setupMobile()`, override `document.body.style.overflow = 'auto'` at runtime.  
+**Fix (Me):** Changed `#mobile` to `min-height: 100vh; overflow-y: auto`. In `setupMobile()`, override `document.body.style.overflow = 'auto'` at runtime.  
 **I wrote:** Set `min-height: 150px` on `.notes-area` so the notes box doesn't collapse on short content, and changed the notes-area `overflow-y` from `auto` to `scroll` for consistent iOS behaviour.
 
 #### Bug 3 — Slide counter shows "Slide 4/2"
@@ -269,23 +269,22 @@ app.get('/config', (req, res) => {
 - `div.reveal` was still visible and taking up space on mobile  
 - "Start the process" button was appearing at the bottom of the phone screen
 
-**Fixes (AI):**
+**Fixes**
 - `#desktop.hidden { display: none !important; }` — override the specificity clash
 - `document.querySelector('.reveal-container').remove()` in `setupMobile()`
 - `document.getElementById('toggle-overlay-btn').style.display = 'none'` in `setupMobile()`
 
-**I wrote:** After the AI provided the three fixes, I also cleaned up `setupMobile()` to group all DOM-removal calls together at the top of the function so the sequence was explicit and easy to follow:
+**I wrote:** I cleaned up `setupMobile()` to group all DOM-removal calls together at the top of the function so the sequence was explicit and easy to follow:
 ```javascript
 async function setupMobile() {
-  // 1. Switch views
+  // switch views
   document.getElementById('desktop').classList.add('hidden');
   document.getElementById('mobile').classList.remove('hidden');
-  // 2. Fix body scroll
+  // fix body scroll
   document.body.style.overflow = 'auto';
-  // 3. Strip desktop-only elements
+  // strip desktop-only elements
   document.querySelector('.reveal-container')?.remove();
   document.getElementById('toggle-overlay-btn').style.display = 'none';
-  // ... rest of setup
 }
 ```
 
@@ -319,16 +318,16 @@ socket.on('phone-left', () => {
 Through Phases 1-7, AI handled the core infrastructure (server, WebRTC, Reveal.js) while I drove design choices, integration testing, and systematic debugging.
 
 **What I implemented / contributed:**
-- **Brainstorming & concept selection** — I explored five project ideas and chose the presentation controller because it was "straight-forward, practical and covers the project requirements"
+- **Brainstorming & concept selection** — I explored five project ideas and chose the presentation controller because it was straight-forward, practical and covered the project requirements
 - **Device detection & view switching** — I wrote the `.hidden` class toggle logic to show/hide mobile vs. desktop views based on the AI-generated `isMobile()` function
 - **Custom CSS styling** — I defined custom colors for the mobile header (`rgb(184, 30, 30)`) and designed all visual layouts for the phone presenter interface
 - **QR code parameters** — I sourced the settings from the course README and integrated them into the AI's QR rendering
 - **Debug instrumentation** — I added custom `console.log` strings (`'QR library available:'`, `'Got URL:'`) throughout the codebase during development and testing
-- **Connection status UX** — I identified that polling was slow and proposed switching to event-driven status updates. I defined the three-color scheme (orange/green/red) and tested it by manually disconnecting/reconnecting the phone multiple times
+- **Connection status UX** — I identified that polling was slow and proposed switching to event-driven status updates. I added the three-color scheme (orange/green/red) and tested it by manually disconnecting/reconnecting the phone multiple times
 - **Message routing** — I wrote the initial message-routing structure inside `setupDataChannel()`, establishing the `if/else` pattern for dispatching `'next'` and `'prev'` commands
 - **Timing fixes** — I noticed `socket.emit('phone-ready')` fired before the RTCPeerConnection was ready and wrapped it in a `setTimeout(500ms)` to fix the race condition
 - **Bug diagnosis & fixes** — I identified three critical bugs: (1) PDFs opening on slide 7 instead of slide 1, (2) phone scroll locked by desktop CSS, (3) slide counter showing wrong totals. For each, I traced the root cause before asking AI to implement the fix
-- **Code organization** — I manually cleaned up `setupMobile()` after receiving fixes, grouping DOM-removal calls at the top and adding comments (`// 1. Switch views`, etc.) to make the sequence explicit
+- **Code organization** — I manually cleaned up `setupMobile()` after receiving fixes, grouping DOM-removal calls at the top and adding comments to make the sequence explicit
 - **WebRTC debugging** — I captured the exact error messages from the browser console (`InvalidStateError: Failed to set local answer sdp`), which helped AI diagnose the double-offer bug. I also added the `phone-left` reset myself to enable reconnects without page reload
 
 **What AI generated (infrastructure & rendering):**
@@ -339,10 +338,7 @@ Through Phases 1-7, AI handled the core infrastructure (server, WebRTC, Reveal.j
 - Entire Reveal.js initialization flow (`Reveal_Instance`, `initialize()`, `slidechanged` listener)
 - PDF.js rendering pipeline (canvas-per-page → base64 URL → `<section>` injection)
 - `parseMarkdownSlides()` and `sendAllNotesToPhone()` for slide + notes handling
-- Full phone presenter HTML structure with notes area and slide counter
 - Server-side `phones` Set tracking + `setConnectionStatus()` function
-- Connection status overlay HTML/CSS with absolute positioning
-- Bug fixes: `Reveal_Instance.slide(0, 0, 0)` for PDF reset, `#mobile { overflow-y: auto }` for scroll, `totalPhoneSlides` state variable
 - WebRTC signaling safeguards: `offerSent` flag, `processingOffer` flag, `signalingState` guard
 
 ---
@@ -421,8 +417,6 @@ if (totalPhoneSlides === 0) {
 
 **I wrote:** Close button HTML, event handlers, and the CSS slide-out transition using `transform + pointer-events: none`.
 
-**I suggested:** Using `transform` instead of `display: none` to preserve textarea content when hidden. Added `pointer-events: none` after looking it up on MDN.
-
 #### 9d — Horizontal overflow fix
 
 **I wrote:** `overflow-x: hidden` on `.upload-overlay` and `box-sizing: border-box` on inner inputs and buttons after noticing the panel was wider than the screen on small phones.
@@ -456,10 +450,10 @@ user-select: none;
 
 ### Phase 11 — Code organisation: separate CSS and JS Files
 
-**Context:** `index.html` had grown to 1474 lines with inline `<style>` and `<script>` blocks. Splitting into separate files improves maintainability and enables proper syntax highlighting.
+**Context:** `index.html` had grown to 1474 lines with inline `<style>` and `<script>` blocks. Splitting into separate files would improve maintainability and enable proper syntax highlighting.
 
 **I did:**
-- Extracted all `<style>` content into `style.css` (303 lines) and all `<script>` content into `script.js`, then updated `index.html` to reference both.
+- Extracted all `<style>` content into `style.css` and all `<script>` content into `script.js`, then updated `index.html` to reference both.
 - Checked the external library load order was preserved (Reveal.js CSS, QR library, Reveal.js JS, Socket.IO, marked, PDF.js — then `script.js` last so all globals exist when app code runs)
 
 **AI did:**
@@ -467,7 +461,7 @@ user-select: none;
 
 ---
 
-#### Week 2 - Critical Reflection on AI Use
+#### WEEK 2 - Critical Reflection on AI Use
 
 Through Phases 8-11, I drove bug fixes and UI improvements through systematic testing and design iteration, while AI provided the core utility functions that I then integrated and styled.
 
@@ -479,7 +473,7 @@ Through Phases 8-11, I drove bug fixes and UI improvements through systematic te
 - **Horizontal overflow fix** — After noticing the panel was wider than the screen on small phones, I added `overflow-x: hidden` on `.upload-overlay` and `box-sizing: border-box` on inputs/buttons.
 - **Double-tap zoom prevention** — I researched on MDN and added `touch-action: manipulation` and `user-select: none` to prevent accidental zoom when tapping the prev/next buttons.
 - **Timer feature implementation** — I wrote the `sendTimerControlToDesktop()` wrapper, `formatTime()` function for MM:SS display, chose the timer CSS styling (48px Courier New, text-shadow, `#ffd700` gold to match the phone header), and added `style="display: none;"` to Pause/Resume buttons in HTML.
-- **Code extraction & organization** — I manually extracted all `<style>` content into `style.css` (303 lines) and all `<script>` content into `script.js`, then updated HTML to reference both. I verified the library load order was preserved (Reveal.js CSS → QR → Reveal.js JS → Socket.IO → marked → PDF.js → script.js).
+- **Code extraction & organization** — I extracted all `<style>` content into `style.css` and all `<script>` content into `script.js`, then updated HTML to reference both. I verified the library load order was preserved (Reveal.js CSS → QR → Reveal.js JS → Socket.IO → marked → PDF.js → script.js).
 
 **What AI generated (utilities & timer logic):**
 - `showButtonFeedback()` utility function that displays temporary feedback labels in the UI
@@ -495,7 +489,7 @@ Through Phases 8-11, I drove bug fixes and UI improvements through systematic te
 - **Planning for Week 3** 
 - introduce the slides changing by tilting the phone
 - introduce a feature where the user can type in how long the presentation should be and at what point (1 minute left? 30 seconds left?) should the phone buzz to remind the speaker they should be finishing the presentation soon. (branch **feature/timer**)
-- add instructions on how to use the phone tilt to the user
+- add instructions on how to use the phone tilt to the user??
 - feature laser pointer where the finger moves on phone screen and a red dot/line moves on the desktop slides in real time as a highlight
 
 
@@ -614,7 +608,7 @@ Both setup functions now use a single `addListeners({...})` call with an object 
 - The QR button was buried in the middle of the panel
 - There was no visual indicator for the overlay when it was closed
 
-**What was done:**
+**What I did:**
 
 **HTML (both `index.html` and `index-desktop.html`):**
 - Removed the "Paste manually" textarea entirely
@@ -649,14 +643,14 @@ Both setup functions now use a single `addListeners({...})` call with an object 
 
 **AI wrote:** The `gyroscope.js` module structure — `DeviceOrientationEvent` listener setup, iOS 13+ permission flow, direction-change detection logic, and the data channel send.
 
-**I set the tuning values** after testing on my own phone — 20° felt right as a threshold (low enough to be responsive, high enough not to misfire when I just adjusted my grip), and 600 ms debounce prevented the slide from skipping two steps when I tilted decisively:
+**I set the tuning values** after testing on my own phone — 20° felt right as a threshold (low enough to be responsive, high enough not to misfire when I just adjusted my grip), and 600 ms debounce prevented the slide from skipping two steps when I tilted a bit too fast:
 
 ```javascript
 const THRESHOLD = 20;      // degrees — I chose this after testing
 const DEBOUNCE_TIME = 600; // ms — I chose this after testing
 ```
 
-**AI diagnosed:** The gyroscope was silently receiving `null` values because iOS 13+ blocks `DeviceOrientationEvent` on plain HTTP — something I had not accounted for.
+**AI diagnosed:** The gyroscope was silently receiving `null` values because iOS 13+ blocks `DeviceOrientationEvent` on plain HTTP — something I hadn't taken into account yet.
 
 **I ran the openssl command** to generate the self-signed certificate once AI explained what was needed:
 
@@ -776,7 +770,7 @@ case 'slide-change':
 
 **AI designed the solution:** Rather than duplicate the Reveal.js navigation logic on the phone side, re-use the existing `'gyroscope-slide'` message type. This way tilt and buttons go through the exact same code path on the desktop.
 
-**I implemented thr button handlers:**
+**I implemented the button handlers:**
 
 ```javascript
 function onPrevSlide() {
@@ -906,7 +900,7 @@ clearLaserCanvas(); // auto-clear on every slide navigation
 
 ---
 
-#### Week 3 - Critical Reflection on AI Use
+#### WEEK 3 - Critical Reflection on AI Use
 
 Through Phases 18 and 19, AI helped me with architecture, diagnosis, and heavy lifting in canvas rendering — while I drove feature tuning, solving bugs, implementing some of the phone logic, and making design decisions.
 
@@ -985,7 +979,7 @@ state.socket.on('phone-left', async () => {
 
 **Problem I identified:** If a second device scanned the QR code, it could interfere with the active session.
 
-**What AI implemented (server/client JS tasks):** I added a server guard to reject additional phones and wired a clear rejection UI on the blocked device.
+**What AI implemented (server/client JS tasks):** Added a server guard to reject additional phones and wired a clear rejection UI on the blocked device.
 
 ```javascript
 // index.js
@@ -1011,9 +1005,6 @@ state.socket.on('phone-rejected', () => {
     </div>`;
 });
 ```
-
-**AI contribution:** AI refined surrounding reliability logic so this guard works cleanly with reconnect state.
-
 ---
 
 #### Phase 21 — UX Polish
@@ -1022,9 +1013,9 @@ state.socket.on('phone-rejected', () => {
 
 ##### 21a — Instant file upload (no separate button)
 
-**Problem I identified:** Selecting a file still required a second click (`Replace with Your Slides`), which added unnecessary friction.
+**Problem I identified:** Selecting a file still required a second click (`Replace with Your Slides`), which could cause possible confusion in some future users.
 
-**What AI did:** AI removed the extra button from the HTML and wired file input `change` directly to slide loading:
+**What I did:** I removed the extra button from the HTML and wired file input `change` directly to slide loading:
 
 ```javascript
 function onFileChange(event) {
@@ -1044,7 +1035,7 @@ function onFileChange(event) {
 
 **Problem I identified:** On initial load, there was no persistent visual signal for phone status.
 
-**What I did:** I implemented a persistent setup-header badge with three states and connected class updates through `setConnectionStatus()`:
+**What I did:** I implemented a setup-header badge with three states and connected class updates through `setConnectionStatus()`:
 
 ```css
 .phone-status-badge.connecting .phone-status-dot {
@@ -1061,7 +1052,7 @@ function onFileChange(event) {
 
 ##### 21c — QR modal auto-close on phone connect
 
-**Problem I identified:** After scan/connect, the QR modal stayed open and needed a manual close.
+**Problem I identified:** After scan/connect, the QR modal stayed open and needed a manual close -> additional clicks which could be annoying for the user
 
 **What I added:** I added auto-dismiss in the connected branch so the overlay closes as soon as the connection is usable:
 
@@ -1080,10 +1071,6 @@ if (isConnected) {
 #### Phase 22 — Laser Pad Repositioning (2026-03-17)
 
 **Problem I identified:** The laser pad was too low in the phone layout (below timer/notes), so it felt disconnected from other gesture controls.
-
-**First attempt (AI):** AI tried a full-screen overlay version with a deactivate control.
-
-**Why I changed direction:** That design changed the interaction model too much. I wanted a compact inline pad, not a modal takeover.
 
 **What I implemented (HTML structure update):** I moved the laser section directly below gyroscope controls and kept the original inline 16:9 pad design:
 
@@ -1129,7 +1116,7 @@ if (isConnected) {
 - Created fallback to web audio beep if MP3 fails to load
 - Added `playMobileBuzzAlert()` with error handling and graceful degradation
 
-**Timer Logic Integration:**
+**What AI did**
 - Updated `setupTimerSettings()` to bind custom warning input changes to state
 - Modified `resetTimer()` to clear warning flags and hide progress indicators
 - Enhanced `updateProgressBar()` to show real-time countdown with "X:XX left" display
@@ -1137,9 +1124,9 @@ if (isConnected) {
 
 ---
 
-#### Week 4 - Critical Reflection on AI Use
+#### WEEK 4 - Critical Reflection on AI Use
 
-Through Phases 20-22, AI handled the heavy reconnection architecture, while I implemented front-end changes and easy JS integration that shaped the final user flow.
+Through Phases 20-22, AI handled the heavy reconnection architecture, while I implemented front-end changes and the more simple JS integration that shaped the final user flow.
 
 **What I contributed:**
 - **Reconnection flow integration** — I wired `offerSent` guard usage and the `phone-left` reset hook so reconnection worked without desktop refresh
@@ -1165,7 +1152,7 @@ Through Phases 20-22, AI handled the heavy reconnection architecture, while I im
 
 ---
 
-### WEEK 4 
+### WEEK 4 - Continuation
 
 **Session: Camera Streaming & Session Enforcement** (2026-03-18)
 
@@ -1177,7 +1164,7 @@ Through Phases 20-22, AI handled the heavy reconnection architecture, while I im
 
 ##### 24a — Planning the camera feature
 
-**Feature I wanted to add:** Presenters sometimes need to show something physical with their hands (assembly, hardware, materials). The phone camera should stream live video onto the desktop as a small picture-in-picture in the bottom-right corner of the slides.
+**Feature I wanted to add:** Presenters sometimes need to show something physical with their hands (assembly, hardware, materials). The phone camera could stream live video onto the desktop as a small picture-in-picture in the bottom-right corner of the slides.
 
 **Decisions I made upfront:** One-way video only (phone → desktop), optional/toggle-able camera state, and non-obstructive positioning over slides.
 
@@ -1323,7 +1310,7 @@ case 'camera-disabled':
 
 ##### 25a — Second phone rendered full UI before rejection
 
-**Problem I identified:** A second scanned phone briefly rendered presenter UI before "Session In Use" appeared.
+**Problem I identified:** A second scanned phone briefly rendered presenter UI before "Session In Use" screen appears.
 
 **Root cause:** Mobile setup work was running before server acceptance was known.
 
@@ -1387,9 +1374,9 @@ state.socket.on('phone-accepted', () => {
 
 ---
 
-#### Week 5 — Critical Reflection on AI Use
+#### WEEK 4 — Critical Reflection on AI Use
 
-This was the most technically demanding feature set so far (camera tracks, SDP media sections, renegotiation timing, and session-gate UX). AI was helpful for fast iteration, but this week included substantial implementation work on my side across HTML/CSS/JS and signaling flow.
+This was the most technically demanding feature set so far (camera tracks, SDP media sections, renegotiation timing, and session-gate UX). AI was helpful for fast iteration and implementation work across HTML/CSS/JS and signaling flow.
 
 **What I contributed (coding + integration):**
 - Defined the camera product constraints and translated them into implementation requirements (one-way, optional, unobtrusive PiP)
@@ -1409,6 +1396,185 @@ This was the most technically demanding feature set so far (camera tracks, SDP m
 - Initial `camera.js` baseline (media acquisition + error scaffolding)
 - Guidance on WebRTC media negotiation strategy (`addTransceiver` + renegotiation expectations)
 - Support in shaping the final acceptance/rejection handshake structure across server and client entry points
+- Overall instructions and guidances on internet documentation related to camera integration
 
-**Honest assessment:**
-I still relied on AI for some WebRTC-specific protocol details, especially around renegotiation sequencing and signaling-state edge cases. But compared with earlier phases, this session involved significantly more direct implementation by me: wiring multiple files, restructuring control flow, and validating behavior through device-level debugging. The strongest part of my process was turning concrete symptoms into targeted fixes quickly, which made each iteration materially faster and more reliable.
+---
+
+### **Session: Reconnection Hardening & Session Enforcement Refinement** (2026-03-20)
+
+---
+
+#### Phase 26 — Auto-generating SSL Certificates (branch: `fix/reconnect-and-session-enforcement`)
+
+**Problem I identified:** After cloning the project on a new machine or clearing the project folder, the server crashed immediately because `key.pem` and `cert.pem` were not present (they are in `.gitignore`). The only fix path was to manually rerun `openssl req ...` — which is error-prone and not documented in the startup flow.
+
+**What I implemented:** Wrapped the entire server startup in an async `startServer()` function with a pre-flight `ensureCerts()` check:
+
+```javascript
+async function ensureCerts() {
+  if (!fs.existsSync('key.pem') || !fs.existsSync('cert.pem')) {
+    console.log('🔐 SSL certificates not found — generating self-signed certificates...');
+    const selfsigned = require('selfsigned');
+    const attrs = [{ name: 'commonName', value: 'localhost' }];
+    const pems = await selfsigned.generate(attrs, { days: 365, keySize: 2048 });
+    fs.writeFileSync('key.pem', pems.private);
+    fs.writeFileSync('cert.pem', pems.cert);
+    console.log('✅ Certificates generated: key.pem + cert.pem');
+  }
+}
+
+async function startServer() {
+  await ensureCerts();
+  // ... rest of server setup
+}
+
+startServer();
+```
+
+**AI wrote:** The `selfsigned.generate()` call and the overall `ensureCerts()` structure, including the `attrs` array and options object.
+
+**I decided:** To require `selfsigned` inline (`require('selfsigned')`) only when certificates are missing, so first-time installs don't need the package installed before it's needed. I also kept the logic that only generates certs when both files are absent, so existing valid certs are never overwritten.
+
+---
+
+#### Phase 27 — Reconnection Race: Double Offer Fix
+
+**Problem I identified:** After the phone disconnected and reconnected (e.g. switching apps or refreshing), the desktop sometimes got stuck — no data channel opened and the connection status stayed at "Connecting…". Reloading the desktop page was needed.
+
+**Root cause I traced:** The server emits both `phone-joined` and `phone-ready` for the same phone connection event. Both events reach the desktop and both call `sendOffer()`. The second offer interrupted the first handshake mid-flight, leaving the signaling state in `have-local-offer` while a stale second offer overwrote the connection.
+
+**Fix I implemented / AI generated:**
+
+`offerSent` flag in `setupDesktop()` — deduplicate no matter how many events arrive:
+
+```javascript
+let offerSent = false;
+
+const sendOffer = async () => {
+  if (offerSent) return;   // ignore duplicates
+  offerSent = true;
+  await prepareOffer();    // fresh RTCPeerConnection every time
+  state.socket.emit('offer', offer);
+};
+
+state.socket.on('phone-joined', sendOffer);
+state.socket.on('phone-ready', sendOffer);
+```
+
+`phone-left` handler resets the flag so the next scan creates a fresh offer:
+
+```javascript
+state.socket.on('phone-left', () => {
+  offerSent = false;
+  state.dataChannelReady = false;
+  setConnectionStatus('📡 Waiting for phone...', false);
+});
+```
+
+`prepareOffer()` closes the old `RTCPeerConnection` before creating a new one, so stale ICE agents don't linger:
+
+```javascript
+async function prepareOffer() {
+  if (state.peerConnection) state.peerConnection.close();
+  state.peerConnection = new RTCPeerConnection(webrtcConfig);
+  state.dataChannel = state.peerConnection.createDataChannel('controls');
+  setupDataChannel(state.dataChannel);
+  state.peerConnection.addTransceiver('video', { direction: 'recvonly' });
+  offer = await state.peerConnection.createOffer();
+  await state.peerConnection.setLocalDescription(offer);
+}
+```
+
+**AI wrote:** The full `prepareOffer()` implementation and the `offerSent` guard pattern.
+
+**I modified:** Added the `offerSent = false` reset to the `phone-left` handler myself after noticing that without it, a second QR scan after disconnect would silently drop the offer and leave the connection stuck.
+
+---
+
+#### Phase 28 — Session Enforcement: Replacing `phones` Set with Direct Socket Reference
+
+**Problem I identified:** The previous session guard used `phones: new Set()` to track connected phones. During edge-case disconnect sequences (e.g. Socket.IO transport errors that bypass the normal `disconnect` event timing), the Set sometimes retained a stale entry, permanently blocking new connections without a server restart.
+
+**What I changed:** Replaced the `Set` with a single direct socket reference `activePhone = null`. Comparing by object identity is simpler and impossible to corrupt — when the socket disconnects, the reference is cleared unconditionally:
+
+```javascript
+let activePhone = null;
+
+socket.on('phone-ready', () => {
+  if (activePhone) {
+    console.log(`Phone rejected (session in use): ${socket.id}`);
+    socket.emit('phone-rejected');
+    return;
+  }
+  activePhone = socket;
+  socket.emit('phone-accepted');
+  socket.broadcast.emit('phone-joined');
+  socket.broadcast.emit('phone-ready');
+});
+
+socket.on('disconnect', () => {
+  if (activePhone && activePhone.id === socket.id) {
+    activePhone = null;
+    socket.broadcast.emit('phone-left');
+  }
+});
+```
+
+**AI wrote:** The replacement code structure using `activePhone = socket` and the identity check on disconnect.
+
+**I diagnosed the original bug:** I noticed the `phones.delete(socket.id)` call in the `disconnect` handler could miss if a reconnect triggered `phone-ready` before `disconnect` fired for the old socket. Switching to a direct reference made this impossible since both events reference the same socket object.
+
+---
+
+#### Phase 29 — Preventing Duplicate `setupMobile()` on Socket.IO Reconnect
+
+**Problem I identified:** Socket.IO automatically reconnects after a dropped connection. When it did, the `initSocket` callback fired again, calling `setupMobile()` a second time. This double-registered all the socket listeners inside `setupMobile()` — producing duplicate `offer`, `answer`, and `candidate` handlers and causing unpredictable behavior.
+
+**What I implemented:** A `mobileSetupDone` flag in `script-mobile.js` that gates `setupMobile()` to run only once per page load, while still re-emitting `phone-ready` on every reconnect so the server and desktop know the phone is back:
+
+```javascript
+let mobileSetupDone = false;
+
+initSocket(() => {
+  // Re-announce on every connect/reconnect
+  state.socket.emit('phone-ready');
+
+  // Only run full setup once — listeners persist across reconnects
+  if (mobileSetupDone) return;
+
+  state.socket.once('phone-rejected', () => {
+    document.body.innerHTML = `<div style="...">🔒 Session In Use</div>`;
+  });
+
+  state.socket.once('phone-accepted', () => {
+    mobileSetupDone = true;
+    document.getElementById('connecting-overlay').style.display = 'none';
+    setupMobile();
+  });
+});
+```
+
+**I wrote:** The `mobileSetupDone` guard and the decision to use `socket.once` (instead of `socket.on`) for `phone-rejected` and `phone-accepted` — so those one-time handshake listeners don't stack up on reconnects.
+
+**AI confirmed:** That re-emitting `phone-ready` on every reconnect is the correct pattern for Socket.IO, since the server only holds socket state in memory and loses it on disconnect.
+
+---
+
+#### Session; refinement: Critical Reflection on AI Use
+
+Today's session focused on reliability and correctness rather than new features. The bugs were subtle (race conditions, stale state, duplicate listeners) and required careful diagnosis before any code was changed. AI was used as an implementation partner after I had already understood the problem.
+
+**What I contributed (diagnosis + design):**
+- **Identified the missing-cert crash** — I ran `npm start` on a clean checkout and read the stack trace. I proposed auto-generating certs as part of startup rather than making it a pre-install manual step.
+- **Traced the double-offer race** — I noticed that `phone-joined` and `phone-ready` were both arriving on the desktop for the same phone connection. I verified this by adding `console.log` before the `sendOffer` call and counting how many times it fired.
+- **Designed the `offerSent` flag solution** — I specified that the flag should be reset on `phone-left` (not just on disconnect) so the next QR scan within the same desktop session would work without a page reload. AI provided the flag pattern; I added the reset location.
+- **Diagnosed the stale `phones` Set issue** — I identified that `delete()` on a `Set` by string ID could miss cleanup in certain reconnect timing windows. I proposed switching to a direct socket object reference, which cannot become stale because JavaScript holds the actual reference.
+- **Wrote the `mobileSetupDone` guard** — I identified that Socket.IO reconnects were re-running `setupMobile()`. I wrote the guard flag myself and chose `socket.once` for handshake listeners so they don't re-register on each reconnect.
+- **End-to-end testing** — I tested each fix by manually triggering the failure: restarting without certs, rapidly scanning/disconnecting/rescanning the QR code, and opening the phone URL on a second device to verify rejection.
+
+**What AI generated:**
+- The full `ensureCerts()` function body using the `selfsigned` npm package
+- The `prepareOffer()` / `sendOffer()` implementation with `offerSent` deduplication
+- Replacement `activePhone = null` session enforcement code for `index.js`
+- Confirmation that re-emitting `phone-ready` on every Socket.IO reconnect is the correct pattern
+

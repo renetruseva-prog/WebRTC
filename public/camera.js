@@ -1,7 +1,8 @@
-// Camera management — phone captures video, desktop displays remote stream
+// camera management — phone captures video, desktop displays remote stream
+
 import { state } from './state.js';
 
-// ─── Mobile: Camera Capture Setup ──────────────────────────────────────────
+// ─── Mobile: Camera capture setup ──────────────────────────────────────────
 
 export function setupCameraControl() {
   if (!state.isPhone) return;
@@ -26,21 +27,21 @@ export function setupCameraControl() {
     try {
       console.log('[CAMERA] Requesting camera access...');
 
-      // Request camera access
+      // request camera access
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          facingMode: 'user'  // Front camera on mobile
+          facingMode: 'user'  // front camera on mobile
         },
-        audio: false  // Video-only for now
+        audio: false  // video-only
       });
 
       console.log('[CAMERA] Camera access granted');
       state.cameraState.stream = stream;
       state.cameraState.hasPermission = true;
 
-      // Get video track
+      // get video track
       const videoTrack = stream.getVideoTracks()[0];
       if (!videoTrack) {
         throw new Error('No video track available');
@@ -48,7 +49,7 @@ export function setupCameraControl() {
 
       state.cameraState.videoTrack = videoTrack;
 
-      // Add video track to peer connection
+      // add video track to peer connection
       if (!state.peerConnection) {
         throw new Error('Peer connection not initialized');
       }
@@ -61,7 +62,7 @@ export function setupCameraControl() {
       console.log('[CAMERA] Track added, sender:', sender);
       console.log('[CAMERA] Signaling state after addTrack:', state.peerConnection.signalingState);
 
-      // Update UI
+      // update UI
       cameraEnabled = true;
       state.cameraState.enabled = true;
       toggleBtn.textContent = '📹 Disable Camera';
@@ -71,7 +72,7 @@ export function setupCameraControl() {
     } catch (error) {
       console.error('[CAMERA] Failed to enable camera:', error.message);
 
-      // Handle specific error cases
+      // handle specific error cases
       if (error.name === 'NotAllowedError') {
         alert('❌ Camera permission denied. Please allow camera access in browser settings.');
       } else if (error.name === 'NotFoundError') {
@@ -90,13 +91,13 @@ export function setupCameraControl() {
     try {
       console.log('[CAMERA] Disabling camera');
 
-      // Stop the video track
+      // stop the video track
       if (state.cameraState.videoTrack) {
         state.cameraState.videoTrack.stop();
         console.log('[CAMERA] Video track stopped');
       }
 
-      // Stop the stream
+      // stop the stream
       if (state.cameraState.stream) {
         state.cameraState.stream.getTracks().forEach(track => {
           track.stop();
@@ -104,16 +105,16 @@ export function setupCameraControl() {
         state.cameraState.stream = null;
       }
 
-      // Update state
+      // update state
       cameraEnabled = false;
       state.cameraState.enabled = false;
       state.cameraState.videoTrack = null;
 
-      // Update UI
+      // update UI
       toggleBtn.textContent = '📹 Enable Camera';
       toggleBtn.classList.remove('recording');
 
-      // Notify desktop to hide the video feed
+      // notify desktop to hide the video feed
       if (state.dataChannel && state.dataChannel.readyState === 'open') {
         state.dataChannel.send(JSON.stringify({ type: 'camera-disabled' }));
       }
@@ -124,11 +125,11 @@ export function setupCameraControl() {
     }
   }
 
-  // Cleanup on page unload
+  // cleanup on page unload
   window.addEventListener('beforeunload', disableCamera);
 }
 
-// ─── Desktop: Remote Video Display ────────────────────────────────────────
+// ─── desktop: Remote video display ────────────────────────────────────────
 
 export function setupRemoteVideoDisplay() {
   if (state.isPhone) return;
@@ -143,26 +144,26 @@ export function setupRemoteVideoDisplay() {
 export function cleanupCamera() {
   console.log('[CAMERA] Cleaning up camera resources');
 
-  // Stop local video track
+  // stop local video track
   if (state.cameraState.videoTrack) {
     state.cameraState.videoTrack.stop();
   }
 
-  // Stop local stream
+  // stop local stream
   if (state.cameraState.stream) {
     state.cameraState.stream.getTracks().forEach(track => {
       track.stop();
     });
   }
 
-  // Clear remote video
+  // clear remote video
   const remoteVideo = document.getElementById('remote-video');
   if (remoteVideo) {
     remoteVideo.srcObject = null;
     remoteVideo.style.display = 'none';
   }
 
-  // Reset state
+  // reset state
   state.cameraState.enabled = false;
   state.cameraState.stream = null;
   state.cameraState.videoTrack = null;

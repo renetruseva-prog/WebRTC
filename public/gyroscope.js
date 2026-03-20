@@ -1,12 +1,12 @@
 // Gyroscope-based slide control for mobile devices
-// Tilt right (positive gamma) → next slide
-// Tilt left (negative gamma) → previous slide
+// Tilt right → next slide
+// Tilt left → previous slide
 // Includes debounce and threshold to prevent accidental triggers
 
 import { state } from './state.js';
 
 export function setupGyroscopeControl() {
-  // Configuration
+  // config
   const THRESHOLD = 20;        // degrees of tilt required to trigger slide change
   const DEBOUNCE_TIME = 600;   // milliseconds between slide changes
 
@@ -16,21 +16,20 @@ export function setupGyroscopeControl() {
   let isEnabled = false;
   let deviceOrientationListener = null;
 
-  // Get UI elements
+  // get UI elements
   const permissionBtn = document.getElementById('request-permission-btn');
   const gyroSection = document.getElementById('gyro-section');
   const disableBtn = document.getElementById('gyro-disable-btn');
   const directionIndicator = document.getElementById('direction-indicator');
   const directionText = document.getElementById('direction-text');
 
-  // Request permission for iOS 13+
+  // request permission for iOS 13+
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     // iOS 13+ requires explicit user permission
     if (permissionBtn) {
       permissionBtn.style.display = 'block';
       permissionBtn.addEventListener('click', requestPermissionAndInit);
     } else {
-      // No button found, try to initialize anyway
       DeviceOrientationEvent.requestPermission()
         .then(permissionState => {
           if (permissionState === 'granted') {
@@ -40,7 +39,7 @@ export function setupGyroscopeControl() {
         .catch(console.error);
     }
   } else if (typeof DeviceOrientationEvent !== 'undefined') {
-    // Non-iOS or older iOS devices - show enable button
+    // non-iOS or older iOS devices - show enable button
     if (permissionBtn) {
       permissionBtn.style.display = 'block';
       permissionBtn.textContent = '🔄 Enable Gyroscope Control';
@@ -54,7 +53,7 @@ export function setupGyroscopeControl() {
     console.warn('[PHONE] DeviceOrientationEvent not supported');
   }
 
-  // Setup disable button
+  // setup disable button
   if (disableBtn) {
     disableBtn.addEventListener('click', disableGyroscope);
   }
@@ -77,14 +76,14 @@ export function setupGyroscopeControl() {
     isInitialized = true;
     isEnabled = true;
 
-    // Hide permission button and show gyro section
+    // hide permission button and show gyro section
     if (permissionBtn) permissionBtn.style.display = 'none';
     if (gyroSection) gyroSection.style.display = 'block';
 
-    // Update initial UI state
+    // update initial UI state
     updateDirectionFeedback('neutral', null);
 
-    // Create and add device orientation listener
+    // create and add device orientation listener
     deviceOrientationListener = (event) => handleDeviceOrientation(event);
     window.addEventListener('deviceorientation', deviceOrientationListener);
 
@@ -95,20 +94,20 @@ export function setupGyroscopeControl() {
     isEnabled = false;
     isInitialized = false;
 
-    // Remove event listener
+    // remove event listener
     if (deviceOrientationListener) {
       window.removeEventListener('deviceorientation', deviceOrientationListener);
       deviceOrientationListener = null;
     }
 
-    // Hide gyro section and show permission button
+    // hide gyro section and show permission button
     if (gyroSection) gyroSection.style.display = 'none';
     if (permissionBtn) {
       permissionBtn.style.display = 'block';
       permissionBtn.textContent = '🔄 Enable Gyroscope Control';
     }
 
-    // Reset state
+    // reset state
     lastDirection = null;
     lastTriggerTime = 0;
 
@@ -118,10 +117,10 @@ export function setupGyroscopeControl() {
   function handleDeviceOrientation(event) {
     if (!isEnabled) return;
 
-    const gamma = event.gamma; // Left-right tilt (-90 to 90)
+    const gamma = event.gamma; // left-right tilt (-90 to 90)
     const now = Date.now();
 
-    // Update visual feedback
+    // update visual feedback
     if (gamma !== null) {
       if (gamma > THRESHOLD) {
         updateDirectionFeedback('right', gamma);
@@ -132,21 +131,21 @@ export function setupGyroscopeControl() {
       }
     }
 
-    // Check if enough time has passed since last trigger (debounce)
+    // check if enough time has passed since last trigger (debounce)
     if (now - lastTriggerTime < DEBOUNCE_TIME) {
       return;
     }
 
     let currentDirection = null;
 
-    // Determine current tilt direction
+    // determine current tilt direction
     if (gamma > THRESHOLD) {
       currentDirection = 'right';
     } else if (gamma < -THRESHOLD) {
       currentDirection = 'left';
     }
 
-    // Trigger only on direction change when threshold is exceeded
+    // trigger only on direction change when threshold is exceeded
     if (currentDirection && currentDirection !== lastDirection) {
       if (currentDirection === 'right') {
         sendGyroscopeCommand('next');
@@ -159,7 +158,7 @@ export function setupGyroscopeControl() {
       }
     }
 
-    // Only update direction when beyond threshold
+    // only update direction when beyond threshold
     if (Math.abs(gamma) > THRESHOLD) {
       lastDirection = currentDirection;
     } else {
@@ -211,7 +210,7 @@ export function setupGyroscopeControl() {
       state.dataChannel.send(JSON.stringify(message));
       console.log('[PHONE] Gyroscope command sent:', direction);
 
-      // Brief feedback
+      // brief feedback
       const action = direction === 'next' ? 'Next slide' : 'Previous slide';
       if (directionText) {
         const originalText = directionText.textContent;

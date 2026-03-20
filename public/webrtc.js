@@ -751,18 +751,9 @@ export async function setupMobile() {
     }
   });
 
-  // Setup gyroscope control for slide navigation
   setupGyroscopeControl();
-
-  // Setup laser pointer touch pad
   setupLaserPointer();
-
-  // Setup camera control for video streaming
   setupCameraControl();
-
-  // Setup timer settings and warnings
   setupTimerSettings();
-
-  // Initialize buzz audio for mobile alerts
   initializeBuzzAudio();
 }
