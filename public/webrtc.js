@@ -532,28 +532,33 @@ export async function setupDesktop() {
     console.log('[DESKTOP] Offer prepared');
   }
 
-  // Prepare the first offer
+  // Prepare the first offer so it's ready when the first phone connects
   await prepareOffer();
   setConnectionStatus('📡 Waiting for phone...', false);
 
-  // Simple guard: only send the offer once per connection cycle
-  const sendOffer = () => {
+  // When a phone arrives: prepare a fresh offer and send it.
+  // This ensures ICE candidates are generated while the phone is connected
+  // and can actually receive them via the socket.
+  const sendOffer = async () => {
     if (offerSent) return;
     offerSent = true;
-    console.log('[DESKTOP] Sending offer to phone');
     setConnectionStatus('⏳ Connecting to phone...', false);
+    await prepareOffer();
+    console.log('[DESKTOP] Sending offer to phone');
     state.socket.emit('offer', offer);
   };
 
   state.socket.on('phone-joined', sendOffer);
   state.socket.on('phone-ready', sendOffer);
 
-  // When phone leaves: clean up and prepare a fresh offer for next connection
-  state.socket.on('phone-left', async () => {
-    console.log('[DESKTOP] Phone left, preparing for reconnection');
+  // When phone leaves: clean up and reset for next connection.
+  // Don't prepare a new offer yet — that happens when the next phone arrives.
+  state.socket.on('phone-left', () => {
+    console.log('[DESKTOP] Phone left, ready for reconnection');
     setConnectionStatus('❌ Phone Disconnected', false);
     disableStep(3);
     offerSent = false;
+    state.dataChannelReady = false;
 
     // Clear remote video feed
     const remoteVideo = document.getElementById('remote-video');
@@ -562,7 +567,6 @@ export async function setupDesktop() {
       remoteVideo.style.display = 'none';
     }
 
-    await prepareOffer();
     setConnectionStatus('📡 Waiting for phone...', false);
   });
 
@@ -613,6 +617,7 @@ export async function setupMobile() {
   console.log('[PHONE] UI switched to mobile mode');
 
   let processingOffer = false;
+  let pendingCandidates = []; // Buffer ICE candidates that arrive before remoteDescription
 
   // ── Event handlers ─────────────────────────────────────────────────────────
   function onPrevSlide() {
@@ -639,6 +644,7 @@ export async function setupMobile() {
 
     try {
       console.log('[PHONE] Received offer from desktop');
+      pendingCandidates = []; // Clear stale candidates from any previous connection
 
       // Always create a fresh peer connection for each offer
       if (state.peerConnection) {
@@ -669,6 +675,13 @@ export async function setupMobile() {
       };
 
       await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Flush any ICE candidates that arrived before the remote description was set
+      for (const c of pendingCandidates) {
+        await state.peerConnection.addIceCandidate(new RTCIceCandidate(c));
+      }
+      pendingCandidates = [];
+
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
       state.socket.emit('answer', answer);
@@ -716,7 +729,9 @@ export async function setupMobile() {
         await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         console.log('[PHONE] Added ICE candidate from desktop');
       } else {
-        console.log('[PHONE] Received ICE candidate but no remote description yet');
+        // Buffer candidates that arrive before remoteDescription is set
+        pendingCandidates.push(candidate);
+        console.log('[PHONE] Buffered ICE candidate (no remote description yet)');
       }
     } catch (error) {
       console.error('[PHONE] Error adding ICE candidate:', error);
